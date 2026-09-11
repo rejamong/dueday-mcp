@@ -6,12 +6,16 @@ import { bearerAuth } from './auth/bearer.js'
 import { rateLimit } from './auth/rate-limit.js'
 import { createApiRoutes } from './api/routes.js'
 import { createMcpServer } from './mcp/server.js'
+import { createOAuthRoutes } from './oauth/routes.js'
+import type { OAuthService } from './oauth/service.js'
 import type { TodoService } from './todos/service.js'
 
 export interface AppDeps {
   readonly service: TodoService
   readonly apiToken: string
   readonly rateLimitPerMinute?: number
+  /** When present, OAuth 2.1 endpoints are mounted and OAuth access tokens are accepted alongside apiToken. */
+  readonly oauth?: OAuthService
 }
 
 const MAX_BODY_BYTES = 64 * 1024
@@ -36,11 +40,16 @@ function closeWhenDone(res: Response, server: McpServer): Response {
  */
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono()
+  const oauth = deps.oauth
   const guard = [
     rateLimit({ limitPerMinute: deps.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT }),
-    bearerAuth(deps.apiToken),
+    bearerAuth({
+      staticToken: deps.apiToken,
+      ...(oauth ? { verify: (t: string) => oauth.verifyAccessToken(t) !== null, resourceMetadataUrl: oauth.resourceMetadataUrl } : {}),
+    }),
     bodyLimit({ maxSize: MAX_BODY_BYTES }),
   ] as const
+  if (oauth) app.route('/', createOAuthRoutes(oauth))
 
   app.get('/health', (c) => c.json({ success: true, data: { status: 'ok', today: deps.service.today() } }))
 

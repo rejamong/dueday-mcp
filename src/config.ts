@@ -5,6 +5,7 @@ type NodeEnv = (typeof NODE_ENVS)[number]
 
 const MIN_API_TOKEN_LENGTH = 16
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 60
+const MIN_OWNER_PASSWORD_LENGTH = 12
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -16,6 +17,10 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(10000).default(DEFAULT_RATE_LIMIT_PER_MINUTE),
   GBRAIN_URL: z.string().url().optional(),
   GBRAIN_TOKEN: z.string().optional(),
+  PUBLIC_URL: z.string().url().optional(),
+  OWNER_PASSWORD: z.string().min(MIN_OWNER_PASSWORD_LENGTH, `OWNER_PASSWORD는 ${MIN_OWNER_PASSWORD_LENGTH}자 이상이어야 합니다`).optional(),
+  OAUTH_CLIENT_ID: z.string().min(1).default('chatgpt'),
+  OAUTH_REDIRECT_URIS: z.string().default('https://chatgpt.com/connector_platform_oauth_redirect'),
 })
 
 export interface Config {
@@ -27,6 +32,15 @@ export interface Config {
   readonly gbrainUrl: string | undefined
   readonly gbrainToken: string | undefined
   readonly brainSyncEnabled: boolean
+  /** Present only when PUBLIC_URL and OWNER_PASSWORD are both set. */
+  readonly oauth: OAuthConfig | undefined
+}
+
+export interface OAuthConfig {
+  readonly issuer: string
+  readonly clientId: string
+  readonly redirectUris: readonly string[]
+  readonly ownerPassword: string
 }
 
 /** `.env` files (and shells) often leave unset vars as empty strings rather than absent keys. */
@@ -45,6 +59,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`환경 변수 설정이 올바르지 않습니다 — ${issues.join('; ')}`)
   }
   const data = parsed.data
+  const oauth: OAuthConfig | undefined =
+    data.PUBLIC_URL !== undefined && data.OWNER_PASSWORD !== undefined
+      ? {
+          issuer: data.PUBLIC_URL.replace(/\/+$/, ''),
+          clientId: data.OAUTH_CLIENT_ID,
+          redirectUris: data.OAUTH_REDIRECT_URIS.split(',').map((u) => u.trim()).filter((u) => u.length > 0),
+          ownerPassword: data.OWNER_PASSWORD,
+        }
+      : undefined
   return Object.freeze({
     port: data.PORT,
     nodeEnv: data.NODE_ENV,
@@ -54,5 +77,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     gbrainUrl: data.GBRAIN_URL,
     gbrainToken: data.GBRAIN_TOKEN,
     brainSyncEnabled: data.GBRAIN_URL !== undefined && data.GBRAIN_TOKEN !== undefined,
+    oauth,
   })
 }

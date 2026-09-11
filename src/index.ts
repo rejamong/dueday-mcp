@@ -5,6 +5,7 @@ import { createApp } from './app.js'
 import { disabledBrainSync, type BrainSync } from './brain/sync.js'
 import { loadConfig } from './config.js'
 import { openDatabase } from './db/connection.js'
+import { OAuthService } from './oauth/service.js'
 import { TodoService } from './todos/service.js'
 
 async function buildBrainSync(config: ReturnType<typeof loadConfig>): Promise<BrainSync> {
@@ -19,11 +20,19 @@ async function main(): Promise<void> {
   const db = openDatabase(config.dbPath)
   const brainSync = await buildBrainSync(config)
   const service = new TodoService({ db, brainSync })
-  const app = createApp({ service, apiToken: config.apiToken, rateLimitPerMinute: config.rateLimitPerMinute })
+  const oauth = config.oauth
+    ? new OAuthService({ db, resourcePath: '/mcp', ...config.oauth })
+    : undefined
+  const app = createApp({
+    service,
+    apiToken: config.apiToken,
+    rateLimitPerMinute: config.rateLimitPerMinute,
+    ...(oauth ? { oauth } : {}),
+  })
 
   const server = serve({ fetch: app.fetch, port: config.port })
 
-  process.stdout.write(`dueday-mcp listening on port ${config.port} (${config.nodeEnv})\n`)
+  process.stdout.write(`dueday-mcp listening on port ${config.port} (${config.nodeEnv}, oauth ${oauth ? 'on' : 'off'})\n`)
 
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals): void => {

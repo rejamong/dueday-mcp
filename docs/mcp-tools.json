@@ -4,7 +4,7 @@
     "name": "dueday-mcp",
     "transport": "streamable-http",
     "path": "/mcp",
-    "auth": "static bearer token (API_TOKEN) — OAuth 2.1 planned if the ChatGPT connector UI offers no API-key option",
+    "auth": "OAuth 2.1 (authorization code + PKCE S256, pre-registered public client, no DCR, owner-password consent page) OR static bearer token (API_TOKEN); discovery via /.well-known/oauth-authorization-server and /.well-known/oauth-protected-resource/mcp",
     "timezone": "Asia/Seoul"
   },
   "responseEnvelope": {

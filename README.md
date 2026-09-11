@@ -5,7 +5,7 @@
 - **MCP 도구 6개**: `add_todo`, `list_todos`, `update_todo`, `complete_todo`, `upcoming`, `list_tags`
 - **REST API**: 같은 서비스 계층을 `/api/*`로 노출 (웹 UI용)
 - **저장소**: SQLite (`node:sqlite` 내장, 네이티브 빌드 불필요)
-- **인증**: 정적 Bearer 토큰 + 클라이언트별 요청 제한 + 64KB 본문 제한
+- **인증**: 내장 OAuth 2.1(PKCE, 사전 등록 공개 클라이언트, DCR 없음) 또는 정적 Bearer 토큰, 클라이언트별 요청 제한, 64KB 본문 제한
 - **배포**: Docker Compose, 선택적으로 Cloudflare Tunnel 프로필
 - **선택 기능**: [gbrain](https://github.com/garrytan/gbrain) 지식 브레인의 프로젝트 페이지에 항목을 선별 동기화
 
@@ -32,7 +32,13 @@ ChatGPT 커스텀 커넥터는 공개 HTTPS 주소가 필요합니다. Cloudflar
 docker compose --profile tunnel up -d
 ```
 
-ChatGPT → 설정 → Apps & Connectors → 개발자 모드 → Create 에서 `https://<host>/mcp`를 등록합니다. 인증은 Bearer 토큰(`API_TOKEN`)입니다.
+ChatGPT의 커스텀 커넥터는 인증 방식으로 **OAuth**만 제공하므로(정적 키 옵션 없음) `.env`에 `PUBLIC_URL`과 `OWNER_PASSWORD`를 설정해 내장 OAuth 2.1 서버를 켭니다. 그 뒤 ChatGPT → 설정 → Apps & Connectors → 개발자 모드 → Create 에서:
+
+- 연결: 서버 URL `https://<host>/mcp`
+- 인증: OAuth. 메타데이터는 `/.well-known/oauth-authorization-server`에서 자동 발견됩니다. 클라이언트 ID는 `OAUTH_CLIENT_ID`(기본 `chatgpt`), 시크릿 없음(PKCE 공개 클라이언트).
+- 연결 버튼을 누르면 `/authorize` 승인 페이지가 열리고 `OWNER_PASSWORD`를 입력하면 완료됩니다.
+
+Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이언트는 `Authorization: Bearer <API_TOKEN>`도 계속 쓸 수 있습니다.
 
 ## 환경 변수
 
@@ -43,6 +49,10 @@ ChatGPT → 설정 → Apps & Connectors → 개발자 모드 → Create 에서 
 | `HOST_PORT` | 3080 | compose가 호스트에 여는 포트 |
 | `DB_PATH` | `./data/todo.db` | SQLite 파일 (WAL) |
 | `RATE_LIMIT_PER_MIN` | 60 | 클라이언트(IP 또는 토큰)별 분당 요청 수 |
+| `PUBLIC_URL` | 비움 | 터널이 노출하는 공개 origin. `OWNER_PASSWORD`와 함께 설정하면 OAuth 활성 |
+| `OWNER_PASSWORD` | 비움 | `/authorize` 승인 페이지 비밀번호, 12자 이상 |
+| `OAUTH_CLIENT_ID` | `chatgpt` | 사전 등록 공개 클라이언트 ID |
+| `OAUTH_REDIRECT_URIS` | ChatGPT 기본 | 허용 리다이렉트 URI(쉼표 구분). `https://chatgpt.com/connector/oauth/<id>`는 항상 허용 |
 | `GBRAIN_URL`, `GBRAIN_TOKEN` | 비움 | 둘 다 있으면 gbrain 동기화 활성 |
 | `TUNNEL_TOKEN` | 비움 | `tunnel` 프로필용 cloudflared 토큰 |
 
@@ -75,7 +85,7 @@ pnpm test:coverage   # 80% 이상 강제
 pnpm typecheck && pnpm build
 ```
 
-구조: `src/todos`(도메인·저장소·날짜), `src/mcp`(MCP 어댑터), `src/api`(REST), `src/auth`(Bearer·요청 제한), `src/brain`(gbrain 동기화), `src/db`(마이그레이션).
+구조: `src/todos`(도메인·저장소·날짜), `src/mcp`(MCP 어댑터), `src/api`(REST), `src/auth`(Bearer·요청 제한), `src/oauth`(OAuth 2.1 서버), `src/brain`(gbrain 동기화), `src/db`(마이그레이션).
 
 ## gbrain 동기화 (선택)
 

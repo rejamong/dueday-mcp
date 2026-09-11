@@ -4,7 +4,7 @@ import { bearerAuth } from '../src/auth/bearer.js'
 
 function appWith(token: string): Hono {
   const app = new Hono()
-  app.use('*', bearerAuth(token))
+  app.use('*', bearerAuth({ staticToken: token }))
   app.get('/protected', (c) => c.json({ success: true, data: 'ok' }))
   return app
 }
