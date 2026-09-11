@@ -60,7 +60,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-primary { background: var(--ink); color: #fff; }
-.btn-ghost { background: transparent; border-color: var(--rule); color: var(--muted); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--paper); }
 .toggle-btn { border: 1px solid var(--rule); color: var(--muted); background: var(--surface); }
 .toggle-selected { background: var(--ink); color: #fff; border-color: var(--ink); }
 
