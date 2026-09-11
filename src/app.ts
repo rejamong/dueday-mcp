@@ -79,14 +79,13 @@ export function createApp(deps: AppDeps): Hono {
     return closeWhenDone(res, server)
   })
 
-  app.use(
-    '/*',
-    serveStatic({
-      root: deps.webRoot ?? DEFAULT_WEB_ROOT,
-      // Personal app behind Cloudflare: always revalidate so deploys show up immediately.
-      onFound: (_path, c) => c.header('Cache-Control', 'no-cache'),
-    }),
-  )
+  // Personal app behind Cloudflare: always revalidate static assets so deploys show up immediately.
+  // (serveStatic builds its Response before onFound runs, so the header is set after next().)
+  app.use('/*', async (c, next) => {
+    await next()
+    if (c.res.headers.has('Last-Modified')) c.res.headers.set('Cache-Control', 'no-cache')
+  })
+  app.use('/*', serveStatic({ root: deps.webRoot ?? DEFAULT_WEB_ROOT }))
 
   return app
 }
