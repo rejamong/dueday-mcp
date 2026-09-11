@@ -83,7 +83,10 @@ export function createApp(deps: AppDeps): Hono {
   // (serveStatic builds its Response before onFound runs, so the header is set after next().)
   app.use('/*', async (c, next) => {
     await next()
-    if (c.res.headers.has('Last-Modified')) c.res.headers.set('Cache-Control', 'no-cache')
+    if (!c.res.headers.has('Last-Modified')) return
+    c.res.headers.set('Cache-Control', 'no-cache')
+    // Cloudflare honors CDN-Cache-Control over Cache-Control at the edge, even when a zone rule sets a browser TTL.
+    c.res.headers.set('CDN-Cache-Control', 'no-store')
   })
   app.use('/*', serveStatic({ root: deps.webRoot ?? DEFAULT_WEB_ROOT }))
 
