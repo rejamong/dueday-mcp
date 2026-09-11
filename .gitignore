@@ -3,3 +3,5 @@ dist
 coverage
 data/*.db*
 .env
+test-results
+playwright-report

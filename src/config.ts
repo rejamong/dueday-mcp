@@ -35,6 +35,8 @@ export interface Config {
   readonly rateLimitPerMinute: number
   readonly gbrain: GbrainConfig | undefined
   readonly brainSyncEnabled: boolean
+  /** Enables the browser login on its own; OAuth additionally needs PUBLIC_URL. */
+  readonly ownerPassword: string | undefined
   /** Present only when PUBLIC_URL and OWNER_PASSWORD are both set. */
   readonly oauth: OAuthConfig | undefined
 }
@@ -107,6 +109,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     rateLimitPerMinute: data.RATE_LIMIT_PER_MIN,
     gbrain: gbrainConfig(data),
     brainSyncEnabled: gbrainConfig(data) !== undefined,
+    ownerPassword: data.OWNER_PASSWORD,
     oauth,
   })
 }

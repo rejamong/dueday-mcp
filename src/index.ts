@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     apiToken: config.apiToken,
     rateLimitPerMinute: config.rateLimitPerMinute,
     ...(oauth ? { oauth } : {}),
-    ...(config.oauth ? { ownerPassword: config.oauth.ownerPassword } : {}),
+    ...(config.ownerPassword !== undefined ? { ownerPassword: config.ownerPassword } : {}),
   })
 
   const server = serve({ fetch: app.fetch, port: config.port })

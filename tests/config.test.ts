@@ -57,6 +57,15 @@ describe('loadConfig', () => {
     expect(() => loadConfig(env({ GBRAIN_URL: 'not a url' }))).toThrow(/환경 변수/)
   })
 
+  it('exposes ownerPassword without PUBLIC_URL, and oauth only with both', () => {
+    const onlyPassword = loadConfig(env({ OWNER_PASSWORD: 'owner-password-123' }))
+    expect(onlyPassword.ownerPassword).toBe('owner-password-123')
+    expect(onlyPassword.oauth).toBeUndefined()
+    const both = loadConfig(env({ OWNER_PASSWORD: 'owner-password-123', PUBLIC_URL: 'https://d.example/' }))
+    expect(both.oauth?.issuer).toBe('https://d.example')
+    expect(() => loadConfig(env({ OWNER_PASSWORD: 'short' }))).toThrow(/OWNER_PASSWORD/)
+  })
+
   it('returns an immutable config object', () => {
     const config = loadConfig(env({}))
     expect(Object.isFrozen(config)).toBe(true)
