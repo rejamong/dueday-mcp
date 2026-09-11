@@ -4,7 +4,7 @@
 const WEEKDAYS_KR = ['일', '월', '화', '수', '목', '금', '토']
 
 /** Trims an RFC3339 due_at ('2026-09-16T18:00:00+09:00') down to its date part. */
-function toDateOnly(value) {
+export function toDateOnly(value) {
   return value === null || value === undefined ? null : String(value).slice(0, 10)
 }
 
@@ -71,4 +71,60 @@ export function prepLabel(prepStart) {
 export function formatTodayLine(today) {
   if (!today) return ''
   return `TODAY ${today} (${weekdayKr(today)}) · Asia/Seoul`
+}
+
+/** Adds `days` (may be negative) to a 'YYYY-MM-DD' string via UTC-midnight arithmetic. */
+export function addDays(dateOnly, days) {
+  const { y, m, d } = parseParts(dateOnly)
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
+}
+
+/** Adds `n` months to a 'YYYY-MM' string, wrapping the year as needed. */
+export function addMonths(yyyyMm, n) {
+  const [y, m] = yyyyMm.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1 + n, 1))
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * Monday-start month grid for 'YYYY-MM': 35 or 42 `{ date, inMonth }` cells,
+ * padded with the trailing days of the previous/next month as needed.
+ */
+export function monthGrid(yyyyMm) {
+  const [y, m] = yyyyMm.split('-').map(Number)
+  const msPerDay = 24 * 60 * 60 * 1000
+  const firstOfMonthMs = Date.UTC(y, m - 1, 1)
+  const firstWeekday = new Date(firstOfMonthMs).getUTCDay() // 0=Sun..6=Sat
+  const leadDays = (firstWeekday + 6) % 7 // days back to the Monday on/before the 1st
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const totalCells = Math.ceil((leadDays + daysInMonth) / 7) * 7
+  const gridStartMs = firstOfMonthMs - leadDays * msPerDay
+
+  const cells = []
+  for (let i = 0; i < totalCells; i++) {
+    const dt = new Date(gridStartMs + i * msPerDay)
+    cells.push({
+      date: dt.toISOString().slice(0, 10),
+      inMonth: dt.getUTCMonth() === m - 1 && dt.getUTCFullYear() === y,
+    })
+  }
+  return cells
+}
+
+/** `2026년 9월` */
+export function formatMonthTitle(yyyyMm) {
+  const [y, m] = yyyyMm.split('-').map(Number)
+  return `${y}년 ${m}월`
+}
+
+/** `9월 11일 (금)` */
+export function formatDayHeading(dateOnly) {
+  const { m, d } = parseParts(dateOnly)
+  return `${m}월 ${d}일 (${weekdayKr(dateOnly)})`
+}
+
+/** Default day to select for a newly-shown month: today when it falls in that month, else the 1st. */
+export function defaultSelectedDay(yyyyMm, today) {
+  if (today && today.slice(0, 7) === yyyyMm) return today
+  return `${yyyyMm}-01`
 }

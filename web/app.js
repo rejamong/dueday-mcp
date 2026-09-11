@@ -1,12 +1,15 @@
 import { api, ApiError } from './api.js'
 import { getState, subscribe, set, setFilter } from './state.js'
-import { todayFromMeta } from './dates.js'
-import { showToast } from './utils.js'
+import { todayFromMeta, monthGrid, addDays, addMonths, defaultSelectedDay } from './dates.js'
+import { showToast, saveView } from './utils.js'
+import { fetchTodosInRange } from './calendar-data.js'
 import { render as renderLogin } from './views/login.js'
 import { render as renderTopbar } from './views/topbar.js'
 import { render as renderQuickAdd } from './views/quick-add.js'
 import { render as renderStats } from './views/stats.js'
 import { render as renderSections } from './views/section.js'
+
+const CALENDAR_TRAILING_DAYS = 60 // matches lead_days' max, so every prep_start inside the grid is fetched
 
 const root = document.getElementById('app')
 
@@ -27,12 +30,55 @@ async function loadData() {
       loading: false,
       authenticated: true,
     })
+    ensureCalendarLoaded()
   } catch (err) {
     set({ loading: false, error: err.message })
     if (!(err instanceof ApiError && err.status === 401)) {
       showToast(err.message || '데이터를 불러오지 못했습니다', { error: true })
     }
   }
+}
+
+/** Reloads both the plain lists and (when a month is showing) the calendar's month. */
+async function reloadAfterMutation() {
+  await loadData()
+  const { calendar } = getState()
+  if (calendar.month) await loadCalendarMonth(calendar.month)
+}
+
+function calendarMonthFromToday() {
+  const { today } = getState()
+  return today ? today.slice(0, 7) : null
+}
+
+/** Fetches every todo whose due date could produce a chip anywhere in `month`'s grid. */
+async function loadCalendarMonth(month) {
+  const grid = monthGrid(month)
+  const dueAfter = grid[0].date
+  const dueBefore = addDays(grid[grid.length - 1].date, CALENDAR_TRAILING_DAYS)
+  set({ calendar: { ...getState().calendar, loading: true } })
+  try {
+    const todos = await fetchTodosInRange(dueAfter, dueBefore)
+    if (getState().calendar.month !== month) return // a later navigation superseded this fetch
+    set({ calendar: { ...getState().calendar, todos, loading: false } })
+  } catch (err) {
+    set({ calendar: { ...getState().calendar, loading: false } })
+    showToast(err.message || '달력 데이터를 불러오지 못했습니다', { error: true })
+  }
+}
+
+/** Switches the visible calendar month, resetting the selected day, and (re)loads its data. */
+function setCalendarMonth(month) {
+  if (!month) return
+  const { calendar, today } = getState()
+  set({ calendar: { ...calendar, month, selectedDay: defaultSelectedDay(month, today) } })
+  void loadCalendarMonth(month)
+}
+
+/** On boot/login, if 달력 was the persisted view, load its month now that `today` is known. */
+function ensureCalendarLoaded() {
+  const { view, calendar } = getState()
+  if (view === '달력' && !calendar.month) setCalendarMonth(calendarMonthFromToday())
 }
 
 const actions = {
@@ -67,7 +113,7 @@ const actions = {
 
   async addTodo(payload) {
     await api('/api/todos', { method: 'POST', body: payload })
-    await loadData()
+    await reloadAfterMutation()
   },
 
   async toggleComplete(todo) {
@@ -76,7 +122,7 @@ const actions = {
         method: 'POST',
         body: { reopen: todo.status === 'done' },
       })
-      await loadData()
+      await reloadAfterMutation()
     } catch (err) {
       showToast(err.message || '처리에 실패했습니다', { error: true })
     }
@@ -84,6 +130,29 @@ const actions = {
 
   setFilter(patch) {
     setFilter(patch)
+  },
+
+  /** Switches between 목록/달력, persisting the choice and loading the month the first time. */
+  setView(view) {
+    saveView(view)
+    set({ view })
+    ensureCalendarLoaded()
+  },
+
+  calendarPrevMonth() {
+    setCalendarMonth(addMonths(getState().calendar.month, -1))
+  },
+
+  calendarNextMonth() {
+    setCalendarMonth(addMonths(getState().calendar.month, 1))
+  },
+
+  calendarGoToday() {
+    setCalendarMonth(calendarMonthFromToday())
+  },
+
+  calendarSelectDay(date) {
+    set({ calendar: { ...getState().calendar, selectedDay: date } })
   },
 
   toggleMenu(id) {
@@ -108,7 +177,7 @@ const actions = {
   async saveEdit(id, patch) {
     const { editingId } = getState()
     await api(`/api/todos/${id}`, { method: 'PATCH', body: patch })
-    await loadData()
+    await reloadAfterMutation()
     set({ editingId: null, focusMenuId: editingId })
     showToast('저장됨')
   },
@@ -128,7 +197,7 @@ const actions = {
   async deleteTodo(id) {
     try {
       await api(`/api/todos/${id}`, { method: 'DELETE' })
-      await loadData()
+      await reloadAfterMutation()
       set({ confirmDeleteId: null })
       showToast('삭제됨')
     } catch (err) {
@@ -140,7 +209,7 @@ const actions = {
   async cancelTodo(id) {
     try {
       await api(`/api/todos/${id}/cancel`, { method: 'POST', body: {} })
-      await loadData()
+      await reloadAfterMutation()
       set({ menuOpenId: null })
       showToast('취소됨 — 전체 목록의 취소 탭에서 되살릴 수 있어요')
     } catch (err) {
@@ -151,7 +220,7 @@ const actions = {
   async restoreTodo(id) {
     try {
       await api(`/api/todos/${id}/cancel`, { method: 'POST', body: { reopen: true } })
-      await loadData()
+      await reloadAfterMutation()
       set({ menuOpenId: null })
       showToast('되살림')
     } catch (err) {

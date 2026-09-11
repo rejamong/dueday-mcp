@@ -5,7 +5,7 @@ import { render as renderEditor } from './row-editor.js'
 import { render as renderDeleteConfirm } from './row-delete-confirm.js'
 
 /** Which badge variant a todo falls into, per the "지금 준비 시작"/"7일 내" rules. */
-function badgeVariant(today, todo) {
+export function badgeVariant(today, todo) {
   if (todo.status === 'cancelled') return 'cancelled'
   if (todo.status === 'done') return 'done'
   if (!todo.due_at) return 'none'

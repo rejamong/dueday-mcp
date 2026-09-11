@@ -14,6 +14,26 @@ export function createElement(html) {
   return template.content.firstElementChild
 }
 
+const VIEW_STORAGE_KEY = 'dueday.view'
+
+/** Reads the persisted 목록/달력 choice, defaulting to '목록' on any storage error. */
+export function loadView() {
+  try {
+    return localStorage.getItem(VIEW_STORAGE_KEY) === '달력' ? '달력' : '목록'
+  } catch {
+    return '목록'
+  }
+}
+
+/** Persists the 목록/달력 choice; storage failures (private mode, quota) are ignored. */
+export function saveView(view) {
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, view)
+  } catch {
+    // ignore
+  }
+}
+
 let toastTimer = null
 
 /** Shows a bottom-center toast for 3s. Pass `{ error: true }` for the danger styling. */

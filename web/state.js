@@ -1,5 +1,7 @@
 // Minimal observable store. Every update creates a brand-new state object (no mutation).
 
+import { loadView } from './utils.js'
+
 function initialState() {
   return {
     today: null,
@@ -15,6 +17,8 @@ function initialState() {
     editingId: null,
     confirmDeleteId: null,
     focusMenuId: null,
+    view: loadView(),
+    calendar: { month: null, todos: [], selectedDay: null, loading: false },
   }
 }
 

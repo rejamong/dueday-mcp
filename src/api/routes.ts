@@ -7,11 +7,14 @@ function toNumber(value: string | undefined): number | undefined {
   return value === undefined ? undefined : Number(value)
 }
 
+/** Query strings arrive as text; the service's zod schema expects numbers for paging fields. */
 function buildListQuery(c: Context): Record<string, unknown> {
   const q = c.req.query()
   const out: Record<string, unknown> = { ...q }
   const limit = toNumber(q.limit)
+  const offset = toNumber(q.offset)
   if (limit !== undefined) out.limit = limit
+  if (offset !== undefined) out.offset = offset
   return out
 }
 

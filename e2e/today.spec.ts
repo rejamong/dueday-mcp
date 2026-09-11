@@ -151,3 +151,90 @@ test('edit, cancel, restore, delete', async ({ page }) => {
     await expect(row).toHaveCount(0)
   })
 })
+
+const WEEKDAYS_KR = ['일', '월', '화', '수', '목', '금', '토']
+
+/** `9월 14일 (월)` — mirrors web/dates.js's formatDayHeading. */
+function formatDayHeadingUtc(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const weekday = WEEKDAYS_KR[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+  return `${m}월 ${d}일 (${weekday})`
+}
+
+test('calendar view: toggle, chips, month nav, day selection, and persistence', async ({ page }) => {
+  const DUE_TITLE = 'E2E 달력 마감 테스트'
+  const LATER_TITLE = 'E2E 달력 예정 테스트'
+  let today = ''
+
+  await test.step('log in', async () => {
+    await page.goto('/')
+    await page.fill('#login-password', OWNER_PASSWORD)
+    await page.click('button:has-text("로그인")')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+  })
+
+  const due3 = addDaysUtc(today, 3)
+  const due20 = addDaysUtc(today, 20)
+
+  await test.step('quick-add a todo due in 3 days with lead 3 (prep starts today)', async () => {
+    await page.fill('#qa-title', DUE_TITLE)
+    await page.fill('#qa-due', due3)
+    await page.fill('#qa-lead', '3')
+    await page.click('.qa-submit')
+    await expect(page.locator('#toast')).toContainText('추가됨')
+  })
+
+  await test.step('quick-add a todo due in 20 days', async () => {
+    await page.fill('#qa-title', LATER_TITLE)
+    await page.fill('#qa-due', due20)
+    await page.click('.qa-submit')
+    await expect(page.locator('#toast')).toContainText('추가됨')
+  })
+
+  // Asia/Seoul "now", per the spec's own formula.
+  const kst = new Date(Date.now() + 9 * 3600 * 1000)
+  const expectedYear = kst.getUTCFullYear()
+  const expectedMonth = kst.getUTCMonth() + 1
+  const expectedTitle = `${expectedYear}년 ${expectedMonth}월`
+
+  await test.step('전체 목록 defaults to 목록, then 달력 shows the current month with the right chips', async () => {
+    await expect(page.locator('.view-toggle-btn[data-view="목록"]')).toHaveClass(/toggle-selected/)
+
+    await page.click('.view-toggle-btn[data-view="달력"]')
+    await expect(page.locator('.calendar-title')).toHaveText(expectedTitle)
+
+    const todayCell = page.locator(`.cal-cell[data-date="${today}"]`)
+    await expect(todayCell.locator('.cal-chip-prep')).toContainText('▷ 준비')
+
+    const dueCell = page.locator(`.cal-cell[data-date="${due3}"]`)
+    await expect(dueCell).toContainText(DUE_TITLE)
+  })
+
+  await test.step('clicking the day+3 cell selects it and shows the todo below', async () => {
+    await page.locator(`.cal-cell[data-date="${due3}"]`).click()
+
+    await expect(page.locator('.calendar-day-title')).toHaveText(formatDayHeadingUtc(due3))
+    await expect(page.locator('.calendar-day-list .todo-row').filter({ hasText: DUE_TITLE })).toBeVisible()
+  })
+
+  await test.step('› moves the title to next month', async () => {
+    await page.click('.cal-nav-btn[data-nav="next"]')
+    const nextMonth = expectedMonth === 12 ? 1 : expectedMonth + 1
+    const nextYear = expectedMonth === 12 ? expectedYear + 1 : expectedYear
+    await expect(page.locator('.calendar-title')).toHaveText(`${nextYear}년 ${nextMonth}월`)
+  })
+
+  await test.step('오늘 returns to the current month', async () => {
+    await page.click('.calendar-today-btn')
+    await expect(page.locator('.calendar-title')).toHaveText(expectedTitle)
+  })
+
+  await test.step('reloading the page keeps 달력 selected (persisted in localStorage)', async () => {
+    await page.reload()
+    await expect(page.locator('.view-toggle-btn[data-view="달력"]')).toHaveClass(/toggle-selected/)
+    await expect(page.locator('.calendar-cells')).toBeVisible()
+  })
+})

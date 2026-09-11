@@ -210,4 +210,14 @@ describe('/api/tags', () => {
     expect((await app.request(`/api/todos/${data.id}`, authed({}))).status).toBe(404)
     expect((await app.request(`/api/todos/${data.id}`, authed({ method: 'DELETE' }))).status).toBe(404)
   })
+
+  it('GET /todos coerces limit and offset query strings for paging', async () => {
+    const { app } = makeApp()
+    for (const title of ['p1', 'p2', 'p3']) await app.request('/api/todos', authed(json({ title, due: '2026-09-20' })))
+    const page = await app.request('/api/todos?limit=2&offset=2', authed({}))
+    expect(page.status).toBe(200)
+    const body = (await page.json()) as { data: Array<{ title: string }>; meta: { total: number } }
+    expect(body.meta.total).toBe(3)
+    expect(body.data.map((t) => t.title)).toEqual(['p3'])
+  })
 })

@@ -1,27 +1,34 @@
 import { createElement, escapeHtml } from '../utils.js'
 import { render as renderRow } from './todo-row.js'
 import { render as renderFilters } from './filters.js'
+import { render as renderViewToggle } from './view-toggle.js'
+import { render as renderCalendar } from './calendar.js'
 
 /** Reusable heading + count + rows block, shared by all three list sections below. */
-function buildSectionBlock({ heading, countHtml, rowElements, emptyText, extraEl }) {
+function buildSectionBlock({ heading, countHtml = '', rowElements = null, emptyText = '', extraEl, toggleEl }) {
   const section = createElement(`
     <section class="section">
       <div class="section-header">
-        <h2 class="section-heading">${heading}</h2>
+        <div class="section-header-left">
+          <h2 class="section-heading">${heading}</h2>
+        </div>
         <span class="section-count">${countHtml}</span>
       </div>
       <div class="section-extra"></div>
-      <div class="section-rows"></div>
     </section>
   `)
 
+  if (toggleEl) section.querySelector('.section-header-left').appendChild(toggleEl)
   if (extraEl) section.querySelector('.section-extra').appendChild(extraEl)
 
-  const rowsContainer = section.querySelector('.section-rows')
-  if (rowElements.length === 0) {
-    rowsContainer.appendChild(createElement(`<div class="section-empty">${escapeHtml(emptyText)}</div>`))
-  } else {
-    for (const el of rowElements) rowsContainer.appendChild(el)
+  if (rowElements !== null) {
+    const rowsContainer = createElement('<div class="section-rows"></div>')
+    if (rowElements.length === 0) {
+      rowsContainer.appendChild(createElement(`<div class="section-empty">${escapeHtml(emptyText)}</div>`))
+    } else {
+      for (const el of rowElements) rowsContainer.appendChild(el)
+    }
+    section.appendChild(rowsContainer)
   }
   return section
 }
@@ -73,6 +80,16 @@ function laterSection(state, actions) {
 }
 
 function allListSection(state, actions) {
+  const toggleEl = renderViewToggle(state, actions)
+
+  if (state.view === '달력') {
+    return buildSectionBlock({
+      heading: '전체 목록',
+      toggleEl,
+      extraEl: renderCalendar(state, actions),
+    })
+  }
+
   const base = state.todos.filter((t) => matchesTagAndQuery(t, state.filter))
   const openCount = base.filter((t) => t.status === 'open').length
   const doneCount = base.filter((t) => t.status === 'done').length
@@ -88,6 +105,7 @@ function allListSection(state, actions) {
     rowElements: visible.map((todo) => renderRow(todo, state, actions, 'all')),
     emptyText: '표시할 항목이 없음',
     extraEl: renderFilters(state, actions),
+    toggleEl,
   })
 }
 
