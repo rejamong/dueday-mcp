@@ -5,6 +5,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { bearerAuth } from './auth/bearer.js'
 import { rateLimit } from './auth/rate-limit.js'
 import { createApiRoutes } from './api/routes.js'
+import { logMcpRequest } from './mcp/access-log.js'
 import { createMcpServer } from './mcp/server.js'
 import { createOAuthRoutes } from './oauth/routes.js'
 import type { OAuthService } from './oauth/service.js'
@@ -57,6 +58,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api', createApiRoutes(deps.service))
 
   app.all('/mcp', ...guard, async (c) => {
+    await logMcpRequest(c)
     const server = createMcpServer(deps.service)
     const transport = new StreamableHTTPTransport()
     await server.connect(transport)
