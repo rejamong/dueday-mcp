@@ -22,7 +22,7 @@ describe('loadConfig', () => {
     expect(config.port).toBe(4321)
     expect(config.dbPath).toBe('./data/todo.db')
     expect(config.rateLimitPerMinute).toBe(10)
-    expect(config.gbrainUrl).toBeUndefined()
+    expect(config.gbrain).toBeUndefined()
   })
 
   it('rejects an out-of-range PORT and an unknown NODE_ENV', () => {
@@ -37,10 +37,20 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ NODE_ENV: 'test', API_TOKEN: 'short' })).toThrow(/API_TOKEN/)
   })
 
-  it('derives brainSyncEnabled only when both GBRAIN_URL and GBRAIN_TOKEN are set', () => {
+  it('enables brain sync with a static token or with client credentials', () => {
     expect(loadConfig(env({ GBRAIN_URL: 'https://brain.example/mcp' })).brainSyncEnabled).toBe(false)
     expect(loadConfig(env({ GBRAIN_TOKEN: 'x' })).brainSyncEnabled).toBe(false)
-    expect(loadConfig(env({ GBRAIN_URL: 'https://brain.example/mcp', GBRAIN_TOKEN: 'x' })).brainSyncEnabled).toBe(true)
+    const fixed = loadConfig(env({ GBRAIN_URL: 'https://brain.example/mcp', GBRAIN_TOKEN: 'x' }))
+    expect(fixed.gbrain).toEqual({ url: 'https://brain.example/mcp', mode: 'static', token: 'x' })
+    const cc = loadConfig(env({ GBRAIN_URL: 'http://host.docker.internal:3131/mcp', GBRAIN_CLIENT_ID: 'dueday', GBRAIN_CLIENT_SECRET: 'sec' }))
+    expect(cc.gbrain).toEqual({
+      url: 'http://host.docker.internal:3131/mcp',
+      mode: 'client_credentials',
+      tokenUrl: 'http://host.docker.internal:3131/token',
+      clientId: 'dueday',
+      clientSecret: 'sec',
+      scope: 'read write',
+    })
   })
 
   it('rejects a malformed GBRAIN_URL', () => {

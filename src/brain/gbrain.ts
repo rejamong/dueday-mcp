@@ -5,10 +5,12 @@ import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/type
 import type { Todo } from '../todos/types.js'
 import { upsertRemainingRow } from './markdown.js'
 import type { BrainSync, BrainSyncEvent, BrainSyncOutcome } from './sync.js'
+import { staticTokenProvider, type TokenProvider } from './token.js'
 
 export interface GbrainSyncOptions {
   readonly url: string
-  readonly token: string
+  /** Static bearer token, or a provider (e.g. client_credentials) that supplies one per call. */
+  readonly token: string | TokenProvider
   /** Per-request timeout; the whole sync (connect + get + put) is bounded by ~3x this. */
   readonly timeoutMs?: number
   readonly clientFactory?: () => Promise<Client>
@@ -17,8 +19,9 @@ export interface GbrainSyncOptions {
 const CLIENT_INFO = { name: 'dueday-mcp', version: '0.1.0' } as const
 const DEFAULT_TIMEOUT_MS = 5_000
 
-function defaultClientFactory(url: string, token: string, timeoutMs: number): () => Promise<Client> {
+function defaultClientFactory(url: string, tokenProvider: TokenProvider, timeoutMs: number): () => Promise<Client> {
   return async () => {
+    const token = await tokenProvider()
     const client = new Client(CLIENT_INFO)
     const transport = new StreamableHTTPClientTransport(new URL(url), {
       requestInit: { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(timeoutMs) },
@@ -90,7 +93,8 @@ async function withClient<T>(factory: () => Promise<Client>, work: (client: Clie
 /** Selective sync of project-linked todos into the gbrain knowledge base over MCP. */
 export function createGbrainSync(options: GbrainSyncOptions): BrainSync {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
-  const clientFactory = options.clientFactory ?? defaultClientFactory(options.url, options.token, timeoutMs)
+  const tokenProvider = typeof options.token === 'string' ? staticTokenProvider(options.token) : options.token
+  const clientFactory = options.clientFactory ?? defaultClientFactory(options.url, tokenProvider, timeoutMs)
 
   async function sync(event: BrainSyncEvent, todo: Todo): Promise<BrainSyncOutcome> {
     if (todo.brain_ref === null) {

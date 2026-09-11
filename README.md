@@ -53,7 +53,9 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `OWNER_PASSWORD` | 비움 | `/authorize` 승인 페이지 비밀번호, 12자 이상 |
 | `OAUTH_CLIENT_ID` | `chatgpt` | 사전 등록 공개 클라이언트 ID |
 | `OAUTH_REDIRECT_URIS` | ChatGPT 기본 | 허용 리다이렉트 URI(쉼표 구분). `https://chatgpt.com/connector/oauth/<id>`는 항상 허용 |
-| `GBRAIN_URL`, `GBRAIN_TOKEN` | 비움 | 둘 다 있으면 gbrain 동기화 활성 |
+| `GBRAIN_URL` | 비움 | gbrain MCP 엔드포인트. 아래 자격증명 중 하나와 함께 설정하면 동기화 활성 |
+| `GBRAIN_TOKEN` | 비움 | 정적 bearer 토큰 |
+| `GBRAIN_CLIENT_ID`, `GBRAIN_CLIENT_SECRET` | 비움 | OAuth client_credentials (권장). 토큰은 자동 발급·캐시 |
 | `TUNNEL_TOKEN` | 비움 | `tunnel` 프로필용 cloudflared 토큰 |
 
 ## MCP 도구
@@ -128,6 +130,14 @@ pnpm typecheck && pnpm build
 ## gbrain 동기화 (선택)
 
 `brain_ref`에 gbrain 프로젝트 페이지 슬러그를 주면 생성·완료 시 그 페이지의 `## 남은 일` 표에 `todo:<id>` 행을 추가·갱신합니다. 없는 페이지는 만들지 않으며 결과는 `brain_sync_log`에 남습니다. 시간 제한은 요청당 5초입니다.
+
+gbrain 쪽에는 `projects/`만 쓸 수 있는 client_credentials 클라이언트를 하나 등록하는 것을 권합니다:
+
+```bash
+gbrain auth register-client dueday --grant-types client_credentials \
+  --scopes "read write" --token-endpoint-auth-method client_secret_post \
+  --bound-slug-prefixes projects/
+```
 
 ## 라이선스
 

@@ -9,9 +9,18 @@ import { OAuthService } from './oauth/service.js'
 import { TodoService } from './todos/service.js'
 
 async function buildBrainSync(config: ReturnType<typeof loadConfig>): Promise<BrainSync> {
-  if (!config.brainSyncEnabled) return disabledBrainSync
+  const gbrain = config.gbrain
+  if (gbrain === undefined) return disabledBrainSync
   const { createGbrainSync } = await import('./brain/gbrain.js')
-  return createGbrainSync({ url: config.gbrainUrl as string, token: config.gbrainToken as string })
+  if (gbrain.mode === 'static') return createGbrainSync({ url: gbrain.url, token: gbrain.token })
+  const { createClientCredentialsTokenProvider } = await import('./brain/token.js')
+  const token = createClientCredentialsTokenProvider({
+    tokenUrl: gbrain.tokenUrl,
+    clientId: gbrain.clientId,
+    clientSecret: gbrain.clientSecret,
+    scope: gbrain.scope,
+  })
+  return createGbrainSync({ url: gbrain.url, token })
 }
 
 async function main(): Promise<void> {

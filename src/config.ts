@@ -17,6 +17,10 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(10000).default(DEFAULT_RATE_LIMIT_PER_MINUTE),
   GBRAIN_URL: z.string().url().optional(),
   GBRAIN_TOKEN: z.string().optional(),
+  GBRAIN_TOKEN_URL: z.string().url().optional(),
+  GBRAIN_CLIENT_ID: z.string().optional(),
+  GBRAIN_CLIENT_SECRET: z.string().optional(),
+  GBRAIN_SCOPE: z.string().default('read write'),
   PUBLIC_URL: z.string().url().optional(),
   OWNER_PASSWORD: z.string().min(MIN_OWNER_PASSWORD_LENGTH, `OWNER_PASSWORD는 ${MIN_OWNER_PASSWORD_LENGTH}자 이상이어야 합니다`).optional(),
   OAUTH_CLIENT_ID: z.string().min(1).default('chatgpt'),
@@ -29,11 +33,38 @@ export interface Config {
   readonly dbPath: string
   readonly apiToken: string
   readonly rateLimitPerMinute: number
-  readonly gbrainUrl: string | undefined
-  readonly gbrainToken: string | undefined
+  readonly gbrain: GbrainConfig | undefined
   readonly brainSyncEnabled: boolean
   /** Present only when PUBLIC_URL and OWNER_PASSWORD are both set. */
   readonly oauth: OAuthConfig | undefined
+}
+
+export type GbrainConfig =
+  | { readonly url: string; readonly mode: 'static'; readonly token: string }
+  | {
+      readonly url: string
+      readonly mode: 'client_credentials'
+      readonly tokenUrl: string
+      readonly clientId: string
+      readonly clientSecret: string
+      readonly scope: string
+    }
+
+function gbrainConfig(data: z.infer<typeof envSchema>): GbrainConfig | undefined {
+  if (data.GBRAIN_URL === undefined) return undefined
+  if (data.GBRAIN_CLIENT_ID !== undefined && data.GBRAIN_CLIENT_SECRET !== undefined) {
+    const tokenUrl = data.GBRAIN_TOKEN_URL ?? `${new URL(data.GBRAIN_URL).origin}/token`
+    return {
+      url: data.GBRAIN_URL,
+      mode: 'client_credentials',
+      tokenUrl,
+      clientId: data.GBRAIN_CLIENT_ID,
+      clientSecret: data.GBRAIN_CLIENT_SECRET,
+      scope: data.GBRAIN_SCOPE,
+    }
+  }
+  if (data.GBRAIN_TOKEN !== undefined) return { url: data.GBRAIN_URL, mode: 'static', token: data.GBRAIN_TOKEN }
+  return undefined
 }
 
 export interface OAuthConfig {
@@ -74,9 +105,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dbPath: data.DB_PATH,
     apiToken: data.API_TOKEN,
     rateLimitPerMinute: data.RATE_LIMIT_PER_MIN,
-    gbrainUrl: data.GBRAIN_URL,
-    gbrainToken: data.GBRAIN_TOKEN,
-    brainSyncEnabled: data.GBRAIN_URL !== undefined && data.GBRAIN_TOKEN !== undefined,
+    gbrain: gbrainConfig(data),
+    brainSyncEnabled: gbrainConfig(data) !== undefined,
     oauth,
   })
 }
