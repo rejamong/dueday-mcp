@@ -57,7 +57,7 @@ function startNowSection(state, actions) {
   return buildSectionBlock({
     heading: '지금 준비 시작',
     countHtml: `${rows.length} · 마감 지남 ${upcoming.overdue.length}`,
-    rowElements: rows.map((todo) => renderRow(todo, state, actions)),
+    rowElements: rows.map((todo) => renderRow(todo, state, actions, 'startnow')),
     emptyText: '오늘 준비 시작할 일이 없음',
   })
 }
@@ -67,7 +67,7 @@ function laterSection(state, actions) {
   return buildSectionBlock({
     heading: '7일 내 예정',
     countHtml: `${upcoming.later.length} · 아직 준비 시작 전`,
-    rowElements: upcoming.later.map((todo) => renderRow(todo, state, actions)),
+    rowElements: upcoming.later.map((todo) => renderRow(todo, state, actions, 'later')),
     emptyText: '7일 내 예정된 일이 없음',
   })
 }
@@ -76,6 +76,7 @@ function allListSection(state, actions) {
   const base = state.todos.filter((t) => matchesTagAndQuery(t, state.filter))
   const openCount = base.filter((t) => t.status === 'open').length
   const doneCount = base.filter((t) => t.status === 'done').length
+  const cancelledCount = base.filter((t) => t.status === 'cancelled').length
   const visible = sortForStatus(
     base.filter((t) => t.status === state.filter.status),
     state.filter.status,
@@ -83,8 +84,8 @@ function allListSection(state, actions) {
 
   return buildSectionBlock({
     heading: '전체 목록',
-    countHtml: `미완료 ${openCount} · 완료 ${doneCount}`,
-    rowElements: visible.map((todo) => renderRow(todo, state, actions)),
+    countHtml: `미완료 ${openCount} · 완료 ${doneCount} · 취소 ${cancelledCount}`,
+    rowElements: visible.map((todo) => renderRow(todo, state, actions, 'all')),
     emptyText: '표시할 항목이 없음',
     extraEl: renderFilters(state, actions),
   })

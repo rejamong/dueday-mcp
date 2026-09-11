@@ -11,6 +11,10 @@ function initialState() {
     error: null,
     authenticated: null,
     loginError: null,
+    menuOpenId: null,
+    editingId: null,
+    confirmDeleteId: null,
+    focusMenuId: null,
   }
 }
 

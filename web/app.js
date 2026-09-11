@@ -53,7 +53,16 @@ const actions = {
     } catch (err) {
       showToast(err.message || '로그아웃에 실패했습니다', { error: true })
     }
-    set({ authenticated: false, upcoming: null, todos: [], tags: [] })
+    set({
+      authenticated: false,
+      upcoming: null,
+      todos: [],
+      tags: [],
+      menuOpenId: null,
+      editingId: null,
+      confirmDeleteId: null,
+      focusMenuId: null,
+    })
   },
 
   async addTodo(payload) {
@@ -76,6 +85,95 @@ const actions = {
   setFilter(patch) {
     setFilter(patch)
   },
+
+  toggleMenu(id) {
+    const { menuOpenId } = getState()
+    set({ menuOpenId: menuOpenId === id ? null : id })
+  },
+
+  closeMenu() {
+    set({ menuOpenId: null })
+  },
+
+  startEdit(id) {
+    set({ menuOpenId: null, editingId: id })
+  },
+
+  cancelEdit() {
+    const { editingId } = getState()
+    set({ editingId: null, focusMenuId: editingId })
+  },
+
+  /** PATCHes only the changed fields, reloads, then closes the editor and returns focus to ⋯. */
+  async saveEdit(id, patch) {
+    const { editingId } = getState()
+    await api(`/api/todos/${id}`, { method: 'PATCH', body: patch })
+    await loadData()
+    set({ editingId: null, focusMenuId: editingId })
+    showToast('저장됨')
+  },
+
+  clearFocusMenu() {
+    set({ focusMenuId: null })
+  },
+
+  startDelete(id) {
+    set({ menuOpenId: null, confirmDeleteId: id })
+  },
+
+  cancelDeleteConfirm() {
+    set({ confirmDeleteId: null })
+  },
+
+  async deleteTodo(id) {
+    try {
+      await api(`/api/todos/${id}`, { method: 'DELETE' })
+      await loadData()
+      set({ confirmDeleteId: null })
+      showToast('삭제됨')
+    } catch (err) {
+      showToast(err.message || '삭제에 실패했습니다', { error: true })
+      throw err
+    }
+  },
+
+  async cancelTodo(id) {
+    try {
+      await api(`/api/todos/${id}/cancel`, { method: 'POST', body: {} })
+      await loadData()
+      set({ menuOpenId: null })
+      showToast('취소됨 — 전체 목록의 취소 탭에서 되살릴 수 있어요')
+    } catch (err) {
+      showToast(err.message || '취소에 실패했습니다', { error: true })
+    }
+  },
+
+  async restoreTodo(id) {
+    try {
+      await api(`/api/todos/${id}/cancel`, { method: 'POST', body: { reopen: true } })
+      await loadData()
+      set({ menuOpenId: null })
+      showToast('되살림')
+    } catch (err) {
+      showToast(err.message || '되살리기에 실패했습니다', { error: true })
+    }
+  },
+}
+
+/** Closes the open row menu when a pointerdown lands outside its popover. */
+function handleOutsidePointerDown(event) {
+  const { menuOpenId } = getState()
+  if (!menuOpenId) return
+  const wrap = document.querySelector(`.todo-row[data-row-key="${menuOpenId}"] .row-menu-wrap`)
+  if (wrap && !wrap.contains(event.target)) actions.closeMenu()
+}
+
+/** Esc dismisses the open row menu or an open delete-confirmation (the inline editor handles its own Esc). */
+function handleGlobalEscape(event) {
+  if (event.key !== 'Escape') return
+  const { menuOpenId, confirmDeleteId } = getState()
+  if (menuOpenId) actions.closeMenu()
+  else if (confirmDeleteId) actions.cancelDeleteConfirm()
 }
 
 function renderApp(state) {
@@ -111,6 +209,9 @@ async function bootstrap() {
 window.addEventListener('dueday:unauthorized', () => {
   set({ authenticated: false, loginError: null })
 })
+
+window.addEventListener('pointerdown', handleOutsidePointerDown, true)
+window.addEventListener('keydown', handleGlobalEscape)
 
 subscribe(renderApp)
 renderApp(getState())

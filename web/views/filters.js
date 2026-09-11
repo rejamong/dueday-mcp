@@ -17,6 +17,7 @@ export function render(state, actions) {
       <div class="filters-status">
         <button type="button" class="btn toggle-btn ${filter.status === 'open' ? 'toggle-selected' : ''}" data-status="open">미완료</button>
         <button type="button" class="btn toggle-btn ${filter.status === 'done' ? 'toggle-selected' : ''}" data-status="done">완료</button>
+        <button type="button" class="btn toggle-btn ${filter.status === 'cancelled' ? 'toggle-selected' : ''}" data-status="cancelled">취소</button>
       </div>
       <label class="visually-hidden" for="filter-search">검색</label>
       <input id="filter-search" class="filters-search" type="search" placeholder="검색" value="${escapeHtml(filter.q)}" />

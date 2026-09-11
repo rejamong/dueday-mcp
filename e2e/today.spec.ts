@@ -71,3 +71,83 @@ test('login, quick-add, complete, logout', async ({ page }) => {
     await expect(page.locator('#login-password')).toBeVisible()
   })
 })
+
+test('edit, cancel, restore, delete', async ({ page }) => {
+  const EDIT_TITLE = 'E2E 편집 테스트 할 일'
+  let today = ''
+  let row: ReturnType<typeof page.locator>
+
+  const allSection = page.locator('.section').filter({ hasText: '전체 목록' })
+
+  await test.step('log in', async () => {
+    await page.goto('/')
+    await page.fill('#login-password', OWNER_PASSWORD)
+    await page.click('button:has-text("로그인")')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+  })
+
+  await test.step('quick-add the todo and pin its row by id', async () => {
+    await page.fill('#qa-title', EDIT_TITLE)
+    await page.click('.qa-submit')
+    await expect(page.locator('#toast')).toContainText('추가됨')
+
+    const initialRow = allSection.locator('.todo-row').filter({ hasText: EDIT_TITLE })
+    await expect(initialRow).toBeVisible()
+    const todoId = await initialRow.getAttribute('data-id')
+    row = page.locator(`.todo-row[data-id="${todoId}"]`)
+  })
+
+  await test.step('편집: due date +10d and tags a, b', async () => {
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="edit"]').click()
+    await row.locator('.editor-due').fill(addDaysUtc(today, 10))
+    await row.locator('.editor-tags').fill('a, b')
+    await row.locator('.editor-save').click()
+
+    await expect(page.locator('#toast')).toContainText('저장됨')
+    await expect(row.locator('.due-badge')).toContainText('D-10')
+    await expect(row.locator('.tag-chip')).toHaveText(['a', 'b'])
+  })
+
+  await test.step('취소: leaves 미완료, shows under 취소 with a 취소 badge', async () => {
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="cancel"]').click()
+    await expect(page.locator('#toast')).toContainText('취소됨')
+    await expect(row).toHaveCount(0)
+
+    await allSection.locator('button[data-status="cancelled"]').click()
+    await expect(row).toBeVisible()
+    await expect(row.locator('.due-badge')).toContainText('취소')
+  })
+
+  await test.step('되살리기: back under 미완료', async () => {
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="restore"]').click()
+    await expect(page.locator('#toast')).toContainText('되살림')
+    await expect(row).toHaveCount(0)
+
+    await allSection.locator('button[data-status="open"]').click()
+    await expect(row).toBeVisible()
+  })
+
+  await test.step('삭제: 유지 keeps it, confirming 삭제 removes it everywhere', async () => {
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="delete"]').click()
+    await row.locator('.delete-keep').click()
+    await expect(row).toBeVisible()
+
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="delete"]').click()
+    await row.locator('.delete-confirm-btn').click()
+    await expect(page.locator('#toast')).toContainText('삭제됨')
+    await expect(row).toHaveCount(0)
+
+    await allSection.locator('button[data-status="done"]').click()
+    await expect(row).toHaveCount(0)
+    await allSection.locator('button[data-status="cancelled"]').click()
+    await expect(row).toHaveCount(0)
+  })
+})
