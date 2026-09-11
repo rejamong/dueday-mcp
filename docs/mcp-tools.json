@@ -1,0 +1,198 @@
+{
+  "$comment": "MCP tool spec for the personal TODO server. Every response carries meta.today (YYYY-MM-DD, Asia/Seoul) so the GPT client can resolve relative dates. Dates in inputs are ISO (YYYY-MM-DD or RFC3339); the client resolves phrases like '이번주 금요일' before calling.",
+  "server": {
+    "name": "dueday-mcp",
+    "transport": "streamable-http",
+    "path": "/mcp",
+    "auth": "static bearer token (API_TOKEN) — OAuth 2.1 planned if the ChatGPT connector UI offers no API-key option",
+    "timezone": "Asia/Seoul"
+  },
+  "responseEnvelope": {
+    "success": "boolean",
+    "data": "T | undefined",
+    "error": "string | undefined",
+    "meta": {
+      "today": "YYYY-MM-DD",
+      "total": "int (list only)"
+    }
+  },
+  "types": {
+    "Todo": {
+      "id": "string (ULID)",
+      "title": "string",
+      "note": "string | null",
+      "due_at": "string (RFC3339, Asia/Seoul) | null",
+      "lead_days": "int >= 0 (default 3)",
+      "prep_start": "string (YYYY-MM-DD) | null — derived: due_at - lead_days",
+      "status": "open | done | cancelled",
+      "tags": "string[]",
+      "brain_ref": "string | null (gbrain page slug)",
+      "source": "mcp | web",
+      "created_at": "string (RFC3339)",
+      "updated_at": "string (RFC3339)",
+      "done_at": "string (RFC3339) | null"
+    }
+  },
+  "tools": [
+    {
+      "name": "add_todo",
+      "description": "새 할 일을 등록한다. 상대 날짜(이번주 금요일 등)는 호출 전에 meta.today 기준 Asia/Seoul로 ISO 날짜로 바꿔서 넘긴다. 기존 태그를 재사용하려면 먼저 list_tags를 본다.",
+      "input": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "required": true
+        },
+        "due": {
+          "type": "string",
+          "format": "YYYY-MM-DD | RFC3339",
+          "required": false,
+          "note": "날짜만 오면 그날 18:00 Asia/Seoul로 저장"
+        },
+        "tags": {
+          "type": "string[]",
+          "maxItems": 10,
+          "required": false,
+          "note": "없는 태그는 자동 생성, 소문자 정규화"
+        },
+        "lead_days": {
+          "type": "int",
+          "min": 0,
+          "max": 60,
+          "default": 3,
+          "required": false
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 2000,
+          "required": false
+        },
+        "brain_ref": {
+          "type": "string",
+          "pattern": "^[a-z0-9/_-]+$",
+          "required": false,
+          "note": "설정 시 생성 이벤트를 gbrain 프로젝트 허브에 동기화"
+        }
+      },
+      "output": "Todo",
+      "sideEffects": [
+        "brain_sync(created) when brain_ref is set"
+      ]
+    },
+    {
+      "name": "list_todos",
+      "description": "할 일을 조건으로 조회한다. 기본은 status=open, due_at 오름차순(마감 없는 항목은 뒤).",
+      "input": {
+        "status": {
+          "type": "open | done | cancelled | all",
+          "default": "open"
+        },
+        "tag": {
+          "type": "string",
+          "required": false
+        },
+        "due_before": {
+          "type": "string",
+          "format": "YYYY-MM-DD",
+          "required": false,
+          "note": "inclusive"
+        },
+        "due_after": {
+          "type": "string",
+          "format": "YYYY-MM-DD",
+          "required": false,
+          "note": "inclusive"
+        },
+        "q": {
+          "type": "string",
+          "required": false,
+          "note": "title/note 부분 일치"
+        },
+        "limit": {
+          "type": "int",
+          "min": 1,
+          "max": 100,
+          "default": 50
+        },
+        "offset": {
+          "type": "int",
+          "min": 0,
+          "default": 0,
+          "note": "pagination"
+        }
+      },
+      "output": "Todo[] with meta.total"
+    },
+    {
+      "name": "update_todo",
+      "description": "id로 지정한 할 일을 부분 수정한다. 바꿀 필드만 최상위에 넘긴다(중첩 patch 없음). 마감 미루기에 사용.",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "title": "string?",
+        "due": "string | null ? (null이면 마감 제거)",
+        "tags": "string[]? (전체 교체)",
+        "lead_days": "int?",
+        "note": "string | null ?",
+        "brain_ref": "string | null ?"
+      },
+      "output": "Todo",
+      "errors": [
+        "NOT_FOUND",
+        "VALIDATION"
+      ]
+    },
+    {
+      "name": "complete_todo",
+      "description": "할 일을 완료 처리한다. brain_ref가 있으면 gbrain 허브의 남은 일 상태를 갱신한다. 되돌리려면 reopen=true.",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "reopen": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "output": "Todo",
+      "sideEffects": [
+        "brain_sync(done) when brain_ref is set and reopen=false"
+      ],
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
+      "name": "upcoming",
+      "description": "일 단위 알림용. 오늘 기준으로 '지금부터 준비해야 하는' 미완료 할 일을 그룹으로 돌려준다. overdue(마감 지남), start_now(prep_start <= today), later(days 이내지만 아직 준비 시작 전).",
+      "input": {
+        "days": {
+          "type": "int",
+          "min": 1,
+          "max": 60,
+          "default": 7,
+          "note": "later 그룹의 조회 범위"
+        }
+      },
+      "output": {
+        "overdue": "Todo[]",
+        "start_now": "Todo[]",
+        "later": "Todo[]",
+        "no_due": "Todo[] (마감 없는 open 항목, 최대 10)",
+        "summary": "string (한국어 한 줄 요약, GPT가 그대로 인용 가능)"
+      }
+    },
+    {
+      "name": "list_tags",
+      "description": "태그 목록과 각 태그의 미완료 개수를 돌려준다. add_todo 전에 기존 태그를 재사용하기 위해 호출한다.",
+      "input": {},
+      "output": "{ name: string, color: string | null, open_count: int }[]"
+    }
+  ],
+  "validation": "zod schemas on every input; unknown keys are stripped (LLM-friendly); strings trimmed; dates parsed with a fixed Asia/Seoul offset",
+  "rateLimit": "RATE_LIMIT_PER_MIN (default 60) per client IP (cf-connecting-ip / x-forwarded-for), in-memory fixed window; 429 + Retry-After"
+}

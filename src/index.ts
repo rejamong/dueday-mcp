@@ -1,0 +1,45 @@
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { serve } from '@hono/node-server'
+import { createApp } from './app.js'
+import { disabledBrainSync, type BrainSync } from './brain/sync.js'
+import { loadConfig } from './config.js'
+import { openDatabase } from './db/connection.js'
+import { TodoService } from './todos/service.js'
+
+async function buildBrainSync(config: ReturnType<typeof loadConfig>): Promise<BrainSync> {
+  if (!config.brainSyncEnabled) return disabledBrainSync
+  const { createGbrainSync } = await import('./brain/gbrain.js')
+  return createGbrainSync({ url: config.gbrainUrl as string, token: config.gbrainToken as string })
+}
+
+async function main(): Promise<void> {
+  const config = loadConfig()
+  mkdirSync(dirname(config.dbPath), { recursive: true })
+  const db = openDatabase(config.dbPath)
+  const brainSync = await buildBrainSync(config)
+  const service = new TodoService({ db, brainSync })
+  const app = createApp({ service, apiToken: config.apiToken, rateLimitPerMinute: config.rateLimitPerMinute })
+
+  const server = serve({ fetch: app.fetch, port: config.port })
+
+  process.stdout.write(`dueday-mcp listening on port ${config.port} (${config.nodeEnv})\n`)
+
+  let shuttingDown = false
+  const shutdown = (signal: NodeJS.Signals): void => {
+    if (shuttingDown) return
+    shuttingDown = true
+    process.stdout.write(`${signal} 수신 — 종료합니다\n`)
+    server.close(() => {
+      db.close()
+      process.exit(0)
+    })
+  }
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
+}
+
+main().catch((error) => {
+  console.error('서버 시작 실패:', error)
+  process.exit(1)
+})
