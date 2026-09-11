@@ -94,7 +94,10 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .qa-title { flex: 1; min-width: 160px; }
 .qa-due { width: 150px; font-family: var(--font-mono); }
 .qa-tags { width: 200px; }
-.qa-lead { width: 120px; }
+.qa-lead-wrap { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--muted); font-size: 13px; white-space: nowrap; }
+.qa-lead-wrap:focus-within { border-color: var(--accent); }
+.qa-lead-wrap .qa-lead { width: 48px; border: 0; background: transparent; padding: 9px 0; text-align: center; font-family: var(--font-mono); }
+.qa-lead-wrap .qa-lead:focus { outline: none; }
 
 /* Stat strip */
 .stat-strip { display: flex; gap: var(--sp-4); }

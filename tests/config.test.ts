@@ -66,6 +66,22 @@ describe('loadConfig', () => {
     expect(() => loadConfig(env({ OWNER_PASSWORD: 'short' }))).toThrow(/OWNER_PASSWORD/)
   })
 
+  it('parses OAUTH_CLIENTS into public and confidential clients, defaulting to the chatgpt public client', () => {
+    const base = env({ OWNER_PASSWORD: 'owner-password-123', PUBLIC_URL: 'https://d.example' })
+    expect(loadConfig(base).oauth?.clients).toEqual([
+      { id: 'chatgpt', redirectUris: ['https://chatgpt.com/connector_platform_oauth_redirect'] },
+    ])
+    const multi = loadConfig({
+      ...base,
+      OAUTH_CLIENTS: 'chatgpt|https://chatgpt.com/connector_platform_oauth_redirect;claude|https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback|s3cret-s3cret-s3cret',
+    })
+    expect(multi.oauth?.clients).toEqual([
+      { id: 'chatgpt', redirectUris: ['https://chatgpt.com/connector_platform_oauth_redirect'] },
+      { id: 'claude', redirectUris: ['https://claude.ai/api/mcp/auth_callback', 'https://claude.com/api/mcp/auth_callback'], secret: 's3cret-s3cret-s3cret' },
+    ])
+    expect(() => loadConfig({ ...base, OAUTH_CLIENTS: 'bad-entry-without-redirect' })).toThrow(/OAUTH_CLIENTS/)
+  })
+
   it('accepts a short WEB_PASSWORD (4+) separate from OWNER_PASSWORD', () => {
     const cfg = loadConfig(env({ WEB_PASSWORD: '6848' }))
     expect(cfg.webPassword).toBe('6848')

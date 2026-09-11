@@ -38,6 +38,15 @@ ChatGPT의 커스텀 커넥터는 인증 방식으로 **OAuth**만 제공하므�
 - 인증: OAuth. 메타데이터는 `/.well-known/oauth-authorization-server`에서 자동 발견됩니다. 클라이언트 ID는 `OAUTH_CLIENT_ID`(기본 `chatgpt`), 시크릿 없음(PKCE 공개 클라이언트).
 - 연결 버튼을 누르면 `/authorize` 승인 페이지가 열리고 `OWNER_PASSWORD`를 입력하면 완료됩니다.
 
+### Claude.ai / Claude Code
+
+- **claude.ai 커스텀 커넥터**: `.env`의 `OAUTH_CLIENTS`에 confidential 클라이언트를 추가합니다(예: `claude|https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback|<secret>`). claude.ai → 설정 → Connectors → Add custom connector에서 URL `https://<host>/mcp`, Advanced settings에 OAuth Client ID `claude`와 Client Secret을 입력합니다. 연결 시 `/authorize` 승인 페이지에서 `OWNER_PASSWORD`를 입력합니다.
+- **Claude Code**: 헤더 방식이 가장 단순합니다.
+
+```bash
+claude mcp add --transport http -s user dueday https://<host>/mcp --header "Authorization: Bearer <API_TOKEN>"
+```
+
 Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이언트는 `Authorization: Bearer <API_TOKEN>`도 계속 쓸 수 있습니다.
 
 ## 환경 변수
@@ -54,6 +63,7 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `WEB_PASSWORD` | 비움 | 웹 UI 로그인 전용 비밀번호(4자 이상, PIN 가능). 실패 5회/15분 잠금, 전체 30회/15분 잠금 |
 | `OAUTH_CLIENT_ID` | `chatgpt` | 사전 등록 공개 클라이언트 ID |
 | `OAUTH_REDIRECT_URIS` | ChatGPT 기본 | 허용 리다이렉트 URI(쉼표 구분). `https://chatgpt.com/connector/oauth/<id>`는 항상 허용 |
+| `OAUTH_CLIENTS` | 비움 | 여러 클라이언트: `id\|redirect1,redirect2[\|secret];...`. 설정 시 위 두 값을 대체 |
 | `GBRAIN_URL` | 비움 | gbrain MCP 엔드포인트. 아래 자격증명 중 하나와 함께 설정하면 동기화 활성 |
 | `GBRAIN_TOKEN` | 비움 | 정적 bearer 토큰 |
 | `GBRAIN_CLIENT_ID`, `GBRAIN_CLIENT_SECRET` | 비움 | OAuth client_credentials (권장). 토큰은 자동 발급·캐시 |

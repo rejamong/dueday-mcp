@@ -27,6 +27,8 @@ const envSchema = z.object({
   WEB_PASSWORD: z.string().min(MIN_WEB_PASSWORD_LENGTH, `WEB_PASSWORD는 ${MIN_WEB_PASSWORD_LENGTH}자 이상이어야 합니다`).optional(),
   OAUTH_CLIENT_ID: z.string().min(1).default('chatgpt'),
   OAUTH_REDIRECT_URIS: z.string().default('https://chatgpt.com/connector_platform_oauth_redirect'),
+  /** `id|redirect1,redirect2[|secret];id2|...` — overrides OAUTH_CLIENT_ID/OAUTH_REDIRECT_URIS when set. */
+  OAUTH_CLIENTS: z.string().optional(),
 })
 
 export interface Config {
@@ -73,11 +75,31 @@ function gbrainConfig(data: z.infer<typeof envSchema>): GbrainConfig | undefined
   return undefined
 }
 
+export interface OAuthClientConfig {
+  readonly id: string
+  readonly redirectUris: readonly string[]
+  readonly secret?: string
+}
+
 export interface OAuthConfig {
   readonly issuer: string
-  readonly clientId: string
-  readonly redirectUris: readonly string[]
+  readonly clients: readonly OAuthClientConfig[]
   readonly ownerPassword: string
+}
+
+function splitList(value: string): string[] {
+  return value.split(',').map((v) => v.trim()).filter((v) => v.length > 0)
+}
+
+function parseOAuthClients(raw: string): OAuthClientConfig[] {
+  return raw.split(';').map((entry) => entry.trim()).filter((e) => e.length > 0).map((entry) => {
+    const [id, redirects, secret] = entry.split('|').map((v) => v.trim())
+    const redirectUris = redirects === undefined ? [] : splitList(redirects)
+    if (!id || redirectUris.length === 0 || redirectUris.some((u) => !URL.canParse(u))) {
+      throw new Error(`OAUTH_CLIENTS 항목이 올바르지 않습니다: "${entry}" (형식: id|redirect1,redirect2[|secret])`)
+    }
+    return secret ? { id, redirectUris, secret } : { id, redirectUris }
+  })
 }
 
 /** `.env` files (and shells) often leave unset vars as empty strings rather than absent keys. */
@@ -100,8 +122,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     data.PUBLIC_URL !== undefined && data.OWNER_PASSWORD !== undefined
       ? {
           issuer: data.PUBLIC_URL.replace(/\/+$/, ''),
-          clientId: data.OAUTH_CLIENT_ID,
-          redirectUris: data.OAUTH_REDIRECT_URIS.split(',').map((u) => u.trim()).filter((u) => u.length > 0),
+          clients:
+            data.OAUTH_CLIENTS !== undefined
+              ? parseOAuthClients(data.OAUTH_CLIENTS)
+              : [{ id: data.OAUTH_CLIENT_ID, redirectUris: splitList(data.OAUTH_REDIRECT_URIS) }],
           ownerPassword: data.OWNER_PASSWORD,
         }
       : undefined

@@ -21,6 +21,13 @@ const REFRESH_TTL_SEC = 90 * 24 * 60 * 60
 const DAY_MS = 24 * 60 * 60 * 1000
 const CHATGPT_CONNECTOR_REDIRECT = /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]+$/
 
+/** A pre-registered OAuth client. Without `secret` it is a public PKCE client; with one it must authenticate at /token. */
+export interface OAuthClient {
+  readonly id: string
+  readonly redirectUris: readonly string[]
+  readonly secret?: string
+}
+
 export interface OAuthOptions {
   readonly db: Db
   readonly clock?: Clock
@@ -28,10 +35,14 @@ export interface OAuthOptions {
   readonly issuer: string
   /** Path of the protected MCP resource, e.g. /mcp. */
   readonly resourcePath: string
-  readonly clientId: string
-  readonly redirectUris: readonly string[]
+  readonly clients: readonly OAuthClient[]
   readonly ownerPassword: string
   readonly scopes?: readonly string[]
+}
+
+export interface ClientCredentials {
+  readonly client_id: string
+  readonly client_secret?: string | undefined
 }
 
 export const authorizeRequestSchema = z.object({
@@ -91,10 +102,6 @@ export class OAuthService {
     return `${this.opts.issuer}/.well-known/oauth-protected-resource${this.opts.resourcePath}`
   }
 
-  get clientId(): string {
-    return this.opts.clientId
-  }
-
   authorizationServerMetadata(): Record<string, unknown> {
     return {
       issuer: this.opts.issuer,
@@ -105,8 +112,8 @@ export class OAuthService {
       response_modes_supported: ['query'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
-      token_endpoint_auth_methods_supported: ['none'],
-      revocation_endpoint_auth_methods_supported: ['none'],
+      token_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'],
+      revocation_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'],
       scopes_supported: this.scopes,
     }
   }
@@ -120,10 +127,27 @@ export class OAuthService {
     }
   }
 
+  private findClient(clientId: string): OAuthClient | undefined {
+    return this.opts.clients.find((c) => safeEqual(c.id, clientId))
+  }
+
   /** Client identity and redirect target must be valid before anything is sent back to the browser. */
   isTrustedClient(clientId: string, redirectUri: string): boolean {
-    if (!safeEqual(clientId, this.opts.clientId)) return false
-    return this.opts.redirectUris.includes(redirectUri) || CHATGPT_CONNECTOR_REDIRECT.test(redirectUri)
+    const client = this.findClient(clientId)
+    if (client === undefined) return false
+    if (client.redirectUris.includes(redirectUri)) return true
+    const isChatGpt = client.redirectUris.some((u) => u.startsWith('https://chatgpt.com/'))
+    return isChatGpt && CHATGPT_CONNECTOR_REDIRECT.test(redirectUri)
+  }
+
+  /** Confidential clients must present their secret; public clients must not need one. */
+  private authenticateClient(creds: ClientCredentials): OAuthClient {
+    const client = this.findClient(creds.client_id)
+    if (client === undefined) throw new OAuthError('invalid_client', '등록되지 않은 클라이언트입니다', 401)
+    if (client.secret !== undefined && (creds.client_secret === undefined || !safeEqual(creds.client_secret, client.secret))) {
+      throw new OAuthError('invalid_client', '클라이언트 인증에 실패했습니다', 401)
+    }
+    return client
   }
 
   /** Validates the remaining request parameters; errors here are safe to redirect back to the client. */
@@ -156,7 +180,8 @@ export class OAuthService {
     return code
   }
 
-  exchangeCode(params: { code: string; code_verifier: string; redirect_uri: string; client_id: string }): TokenResponse {
+  exchangeCode(params: ClientCredentials & { code: string; code_verifier: string; redirect_uri: string }): TokenResponse {
+    this.authenticateClient(params)
     const now = this.clock.now()
     const record = findCode(this.db, sha256(params.code))
     const valid =
@@ -171,7 +196,8 @@ export class OAuthService {
     return this.issueTokenPair(record.client_id, record.scope, randomToken(16), now)
   }
 
-  refresh(params: { refresh_token: string; client_id: string }): TokenResponse {
+  refresh(params: ClientCredentials & { refresh_token: string }): TokenResponse {
+    this.authenticateClient(params)
     const now = this.clock.now()
     const record = findToken(this.db, sha256(params.refresh_token))
     if (record === undefined || record.kind !== 'refresh' || !safeEqual(record.client_id, params.client_id)) {
@@ -192,10 +218,11 @@ export class OAuthService {
     return { client_id: record.client_id, scope: record.scope }
   }
 
-  revoke(token: string, clientId: string): void {
+  revoke(token: string, creds: ClientCredentials): void {
+    this.authenticateClient(creds)
     const now = this.clock.now().toISOString()
     const record = findToken(this.db, sha256(token))
-    if (record === undefined || !safeEqual(record.client_id, clientId)) return
+    if (record === undefined || !safeEqual(record.client_id, creds.client_id)) return
     if (record.kind === 'refresh') revokeFamily(this.db, record.family_id, now)
     else revokeToken(this.db, record.token_hash, now)
   }

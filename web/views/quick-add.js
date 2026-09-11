@@ -23,8 +23,11 @@ export function render(state, actions) {
       <input id="qa-due" class="qa-due" type="date" />
       <label class="visually-hidden" for="qa-tags">태그</label>
       <input id="qa-tags" class="qa-tags" type="text" placeholder="태그 (쉼표로 구분)" />
-      <label class="visually-hidden" for="qa-lead">준비 시작 리드타임(일)</label>
-      <input id="qa-lead" class="qa-lead" type="number" min="0" placeholder="준비 3일 전" value="3" />
+      <label class="qa-lead-wrap" for="qa-lead" title="마감 며칠 전부터 준비를 시작할지">
+        <span class="qa-lead-prefix">준비</span>
+        <input id="qa-lead" class="qa-lead" type="number" min="0" max="60" value="3" aria-label="준비 시작 리드타임(일)" />
+        <span class="qa-lead-suffix">일 전</span>
+      </label>
       <button type="submit" class="btn btn-primary qa-submit">추가</button>
     </form>
   `)

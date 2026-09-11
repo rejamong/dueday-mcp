@@ -7,6 +7,8 @@ import { TodoService } from '../src/todos/service.js'
 
 const ISSUER = 'https://dueday.example.com'
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect'
+const CLAUDE_REDIRECT = 'https://claude.ai/api/mcp/auth_callback'
+const CLAUDE_SECRET = 'claude-secret-value-1234567890'
 const PASSWORD = 'correct horse battery'
 const API_TOKEN = 'static-api-token-value'
 
@@ -26,8 +28,10 @@ function makeFixture(): Fixture {
     clock: clockFn,
     issuer: ISSUER,
     resourcePath: '/mcp',
-    clientId: 'chatgpt',
-    redirectUris: [REDIRECT],
+    clients: [
+      { id: 'chatgpt', redirectUris: [REDIRECT] },
+      { id: 'claude', redirectUris: [CLAUDE_REDIRECT, 'https://claude.com/api/mcp/auth_callback'], secret: CLAUDE_SECRET },
+    ],
     ownerPassword: PASSWORD,
   })
   const app = createApp({ service, apiToken: API_TOKEN, oauth, rateLimitPerMinute: 1000 })
@@ -102,7 +106,7 @@ describe('OAuth discovery', () => {
     expect(as.authorization_endpoint).toBe(`${ISSUER}/authorize`)
     expect(as.token_endpoint).toBe(`${ISSUER}/token`)
     expect(as.code_challenge_methods_supported).toEqual(['S256'])
-    expect(as.token_endpoint_auth_methods_supported).toEqual(['none'])
+    expect(as.token_endpoint_auth_methods_supported).toEqual(['none', 'client_secret_post', 'client_secret_basic'])
     expect(as.registration_endpoint).toBeUndefined()
 
     const pr = (await (await app.request('/.well-known/oauth-protected-resource/mcp')).json()) as Record<string, unknown>
@@ -250,6 +254,46 @@ describe('POST /authorize + /token', () => {
     const bad = await token(fx.app, { grant_type: 'password', client_id: 'chatgpt' })
     expect(bad.status).toBe(400)
     expect(((await bad.json()) as { error: string }).error).toBe('unsupported_grant_type')
+  })
+
+  it('requires the client secret for a confidential client (post or basic), and rejects cross-client redirects', async () => {
+    const { verifier, challenge } = pkce()
+    const form = (overrides: Record<string, string> = {}) =>
+      new URLSearchParams({
+        response_type: 'code', client_id: 'claude', redirect_uri: CLAUDE_REDIRECT, code_challenge: challenge,
+        code_challenge_method: 'S256', state: 's', password: PASSWORD, ...overrides,
+      }).toString()
+    const post = (body: string) =>
+      fx.app.request('/authorize', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body })
+
+    expect((await post(form({ redirect_uri: REDIRECT }))).status).toBe(400)
+    const res = await post(form())
+    expect(res.status).toBe(302)
+    const code = new URL(res.headers.get('location') ?? '').searchParams.get('code') ?? ''
+    const base = { grant_type: 'authorization_code', code, code_verifier: verifier, redirect_uri: CLAUDE_REDIRECT, client_id: 'claude' }
+
+    const noSecret = await token(fx.app, base)
+    expect(noSecret.status).toBe(401)
+    expect(((await noSecret.json()) as { error: string }).error).toBe('invalid_client')
+    const wrongSecret = await token(fx.app, { ...base, client_secret: 'nope' })
+    expect(wrongSecret.status).toBe(401)
+
+    const basic = await fx.app.request('/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${Buffer.from(`claude:${CLAUDE_SECRET}`).toString('base64')}`,
+      },
+      body: new URLSearchParams(base).toString(),
+    })
+    expect(basic.status).toBe(200)
+    const tokens = (await basic.json()) as { access_token: string; refresh_token: string }
+    expect(fx.oauth.verifyAccessToken(tokens.access_token)?.client_id).toBe('claude')
+
+    const refreshNoSecret = await token(fx.app, { grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: 'claude' })
+    expect(refreshNoSecret.status).toBe(401)
+    const refreshOk = await token(fx.app, { grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: 'claude', client_secret: CLAUDE_SECRET })
+    expect(refreshOk.status).toBe(200)
   })
 
   it('still accepts the static API token alongside OAuth tokens', async () => {
