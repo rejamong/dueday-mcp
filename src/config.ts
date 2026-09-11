@@ -6,6 +6,7 @@ type NodeEnv = (typeof NODE_ENVS)[number]
 const MIN_API_TOKEN_LENGTH = 16
 const DEFAULT_RATE_LIMIT_PER_MINUTE = 60
 const MIN_OWNER_PASSWORD_LENGTH = 12
+const MIN_WEB_PASSWORD_LENGTH = 4
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -23,6 +24,7 @@ const envSchema = z.object({
   GBRAIN_SCOPE: z.string().default('read write'),
   PUBLIC_URL: z.string().url().optional(),
   OWNER_PASSWORD: z.string().min(MIN_OWNER_PASSWORD_LENGTH, `OWNER_PASSWORD는 ${MIN_OWNER_PASSWORD_LENGTH}자 이상이어야 합니다`).optional(),
+  WEB_PASSWORD: z.string().min(MIN_WEB_PASSWORD_LENGTH, `WEB_PASSWORD는 ${MIN_WEB_PASSWORD_LENGTH}자 이상이어야 합니다`).optional(),
   OAUTH_CLIENT_ID: z.string().min(1).default('chatgpt'),
   OAUTH_REDIRECT_URIS: z.string().default('https://chatgpt.com/connector_platform_oauth_redirect'),
 })
@@ -35,8 +37,10 @@ export interface Config {
   readonly rateLimitPerMinute: number
   readonly gbrain: GbrainConfig | undefined
   readonly brainSyncEnabled: boolean
-  /** Enables the browser login on its own; OAuth additionally needs PUBLIC_URL. */
+  /** OAuth consent password; OAuth additionally needs PUBLIC_URL. */
   readonly ownerPassword: string | undefined
+  /** Browser login password: WEB_PASSWORD if set, else OWNER_PASSWORD. */
+  readonly webPassword: string | undefined
   /** Present only when PUBLIC_URL and OWNER_PASSWORD are both set. */
   readonly oauth: OAuthConfig | undefined
 }
@@ -110,6 +114,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     gbrain: gbrainConfig(data),
     brainSyncEnabled: gbrainConfig(data) !== undefined,
     ownerPassword: data.OWNER_PASSWORD,
+    webPassword: data.WEB_PASSWORD ?? data.OWNER_PASSWORD,
     oauth,
   })
 }

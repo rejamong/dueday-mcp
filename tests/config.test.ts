@@ -66,6 +66,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig(env({ OWNER_PASSWORD: 'short' }))).toThrow(/OWNER_PASSWORD/)
   })
 
+  it('accepts a short WEB_PASSWORD (4+) separate from OWNER_PASSWORD', () => {
+    const cfg = loadConfig(env({ WEB_PASSWORD: '6848' }))
+    expect(cfg.webPassword).toBe('6848')
+    expect(cfg.ownerPassword).toBeUndefined()
+    expect(() => loadConfig(env({ WEB_PASSWORD: '123' }))).toThrow(/WEB_PASSWORD/)
+    expect(loadConfig(env({ OWNER_PASSWORD: 'owner-password-123' })).webPassword).toBe('owner-password-123')
+  })
+
   it('returns an immutable config object', () => {
     const config = loadConfig(env({}))
     expect(Object.isFrozen(config)).toBe(true)

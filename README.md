@@ -50,7 +50,8 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `DB_PATH` | `./data/todo.db` | SQLite 파일 (WAL) |
 | `RATE_LIMIT_PER_MIN` | 60 | 클라이언트(IP 또는 토큰)별 분당 요청 수 |
 | `PUBLIC_URL` | 비움 | 터널이 노출하는 공개 origin. `OWNER_PASSWORD`와 함께 설정하면 OAuth 활성 |
-| `OWNER_PASSWORD` | 비움 | `/authorize` 승인 페이지 비밀번호, 12자 이상 |
+| `OWNER_PASSWORD` | 비움 | `/authorize` 승인 페이지 비밀번호, 12자 이상. `WEB_PASSWORD`가 없으면 웹 로그인에도 사용 |
+| `WEB_PASSWORD` | 비움 | 웹 UI 로그인 전용 비밀번호(4자 이상, PIN 가능). 실패 5회/15분 잠금, 전체 30회/15분 잠금 |
 | `OAUTH_CLIENT_ID` | `chatgpt` | 사전 등록 공개 클라이언트 ID |
 | `OAUTH_REDIRECT_URIS` | ChatGPT 기본 | 허용 리다이렉트 URI(쉼표 구분). `https://chatgpt.com/connector/oauth/<id>`는 항상 허용 |
 | `GBRAIN_URL` | 비움 | gbrain MCP 엔드포인트. 아래 자격증명 중 하나와 함께 설정하면 동기화 활성 |

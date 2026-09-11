@@ -10,7 +10,7 @@ import { TodoService } from '../src/todos/service.js'
 const API_TOKEN = 'static-api-token-value'
 const PASSWORD = 'owner-password-123'
 
-function makeApp(opts: { ownerPassword?: string; webRoot?: string } = {}) {
+function makeApp(opts: { ownerPassword?: string; webPassword?: string; webRoot?: string } = {}) {
   const db = openDatabase(':memory:')
   const service = new TodoService({ db, clock: { now: () => new Date('2026-09-11T01:00:00Z') } })
   return createApp({
@@ -18,6 +18,7 @@ function makeApp(opts: { ownerPassword?: string; webRoot?: string } = {}) {
     apiToken: API_TOKEN,
     rateLimitPerMinute: 1000,
     ...(opts.ownerPassword !== undefined ? { ownerPassword: opts.ownerPassword } : {}),
+    ...(opts.webPassword !== undefined ? { webPassword: opts.webPassword } : {}),
     ...(opts.webRoot !== undefined ? { webRoot: opts.webRoot } : {}),
   })
 }
@@ -82,10 +83,28 @@ describe('web session routes', () => {
     expect(out.headers.get('set-cookie')).toContain('Max-Age=0')
   })
 
-  it('refuses to log in when no owner password is configured', async () => {
+  it('refuses to log in when no password is configured', async () => {
     const app = makeApp()
     const res = await app.request('/login', json({ password: 'anything' }))
     expect(res.status).toBe(503)
+  })
+
+  it('uses a dedicated web password when configured, keeping the owner password for OAuth only', async () => {
+    const app = makeApp({ ownerPassword: PASSWORD, webPassword: '6848' })
+    expect((await app.request('/login', json({ password: PASSWORD }))).status).toBe(401)
+    expect((await app.request('/login', json({ password: '6848' }))).status).toBe(200)
+  })
+
+  it('locks out a client after 5 failed attempts with Retry-After', async () => {
+    const app = makeApp({ ownerPassword: PASSWORD, webPassword: '6848' })
+    const headers = { 'cf-connecting-ip': '203.0.113.9' }
+    for (let i = 0; i < 5; i++) {
+      expect((await app.request('/login', json({ password: 'wrong' }, headers))).status).toBe(401)
+    }
+    const locked = await app.request('/login', json({ password: '6848' }, headers))
+    expect(locked.status).toBe(429)
+    expect(Number(locked.headers.get('Retry-After'))).toBeGreaterThan(0)
+    expect((await app.request('/login', json({ password: '6848' }, { 'cf-connecting-ip': '203.0.113.10' }))).status).toBe(200)
   })
 
   it('rejects malformed login bodies', async () => {

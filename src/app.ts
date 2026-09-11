@@ -21,8 +21,10 @@ export interface AppDeps {
   readonly rateLimitPerMinute?: number
   /** When present, OAuth 2.1 endpoints are mounted and OAuth access tokens are accepted alongside apiToken. */
   readonly oauth?: OAuthService
-  /** Enables the browser login (POST /login) for the web UI. */
+  /** OAuth consent password; also the web login fallback when webPassword is not set. */
   readonly ownerPassword?: string
+  /** Dedicated browser login password (may be a short PIN; lockout-protected). */
+  readonly webPassword?: string
   /** Directory of static web assets served at /. Default: ./web */
   readonly webRoot?: string
 }
@@ -63,7 +65,7 @@ export function createApp(deps: AppDeps): Hono {
   if (oauth) app.route('/', createOAuthRoutes(oauth))
 
   app.get('/health', (c) => c.json({ success: true, data: { status: 'ok', today: deps.service.today() } }))
-  app.route('/', createSessionRoutes({ codec, ownerPassword: deps.ownerPassword }))
+  app.route('/', createSessionRoutes({ codec, webPassword: deps.webPassword ?? deps.ownerPassword }))
 
   app.use('/api/*', ...apiGuard)
   app.get('/api/session', (c) => c.json({ success: true, data: { authenticated: true }, meta: { today: deps.service.today() } }))

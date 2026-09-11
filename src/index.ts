@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     rateLimitPerMinute: config.rateLimitPerMinute,
     ...(oauth ? { oauth } : {}),
     ...(config.ownerPassword !== undefined ? { ownerPassword: config.ownerPassword } : {}),
+    ...(config.webPassword !== undefined ? { webPassword: config.webPassword } : {}),
   })
 
   const server = serve({ fetch: app.fetch, port: config.port })
