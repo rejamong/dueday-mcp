@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
-import type { MiddlewareHandler } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
+import { getCookie } from 'hono/cookie'
 
 const SCHEME = /^bearer\s+(.+)$/i
 
@@ -10,6 +11,14 @@ export interface BearerAuthOptions {
   readonly verify?: (token: string) => boolean
   /** RFC 9728 pointer advertised on 401 so MCP clients can discover the authorization server. */
   readonly resourceMetadataUrl?: string
+  /** Optional browser session: cookie name + verifier. Only for same-site UI routes, never for /mcp. */
+  readonly cookie?: { readonly name: string; readonly verify: (token: string) => boolean }
+}
+
+function cookieAccepted(c: Context, cookie: BearerAuthOptions['cookie']): boolean {
+  if (cookie === undefined) return false
+  const token = getCookie(c, cookie.name)
+  return token !== undefined && cookie.verify(token)
 }
 
 function extractToken(header: string | undefined): string | null {
@@ -33,9 +42,9 @@ export function bearerAuth(options: BearerAuthOptions): MiddlewareHandler {
     : 'Bearer'
   return async (c, next) => {
     const provided = extractToken(c.req.header('Authorization'))
-    const accepted =
+    const bearerAccepted =
       provided !== null && (safeEqual(provided, options.staticToken) || (options.verify?.(provided) ?? false))
-    if (!accepted) {
+    if (!bearerAccepted && !cookieAccepted(c, options.cookie)) {
       c.header('WWW-Authenticate', challenge)
       return c.json({ success: false, error: '인증이 필요합니다' }, 401)
     }

@@ -1,9 +1,13 @@
+import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { bearerAuth } from './auth/bearer.js'
 import { rateLimit } from './auth/rate-limit.js'
+import { createSessionCodec } from './auth/session.js'
+import { createSessionRoutes, SESSION_COOKIE } from './auth/session-routes.js'
 import { createApiRoutes } from './api/routes.js'
 import { logMcpRequest } from './mcp/access-log.js'
 import { createMcpServer } from './mcp/server.js'
@@ -17,10 +21,16 @@ export interface AppDeps {
   readonly rateLimitPerMinute?: number
   /** When present, OAuth 2.1 endpoints are mounted and OAuth access tokens are accepted alongside apiToken. */
   readonly oauth?: OAuthService
+  /** Enables the browser login (POST /login) for the web UI. */
+  readonly ownerPassword?: string
+  /** Directory of static web assets served at /. Default: ./web */
+  readonly webRoot?: string
 }
 
 const MAX_BODY_BYTES = 64 * 1024
 const DEFAULT_RATE_LIMIT = 60
+const SESSION_TTL_SEC = 30 * 24 * 60 * 60
+const DEFAULT_WEB_ROOT = './web'
 
 /** Tears the per-request MCP server down once the (possibly streamed) response body has been fully sent. */
 function closeWhenDone(res: Response, server: McpServer): Response {
@@ -42,22 +52,24 @@ function closeWhenDone(res: Response, server: McpServer): Response {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono()
   const oauth = deps.oauth
-  const guard = [
-    rateLimit({ limitPerMinute: deps.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT }),
-    bearerAuth({
-      staticToken: deps.apiToken,
-      ...(oauth ? { verify: (t: string) => oauth.verifyAccessToken(t) !== null, resourceMetadataUrl: oauth.resourceMetadataUrl } : {}),
-    }),
-    bodyLimit({ maxSize: MAX_BODY_BYTES }),
-  ] as const
+  const limiter = rateLimit({ limitPerMinute: deps.rateLimitPerMinute ?? DEFAULT_RATE_LIMIT })
+  const limitBody = bodyLimit({ maxSize: MAX_BODY_BYTES })
+  const oauthOptions = oauth
+    ? { verify: (t: string) => oauth.verifyAccessToken(t) !== null, resourceMetadataUrl: oauth.resourceMetadataUrl }
+    : {}
+  const codec = createSessionCodec({ secret: createHash('sha256').update(`dueday-session:${deps.apiToken}`).digest('hex'), ttlSec: SESSION_TTL_SEC })
+  const apiGuard = [limiter, bearerAuth({ staticToken: deps.apiToken, ...oauthOptions, cookie: { name: SESSION_COOKIE, verify: (t) => codec.verify(t, Date.now()) } }), limitBody] as const
+  const mcpGuard = [limiter, bearerAuth({ staticToken: deps.apiToken, ...oauthOptions }), limitBody] as const
   if (oauth) app.route('/', createOAuthRoutes(oauth))
 
   app.get('/health', (c) => c.json({ success: true, data: { status: 'ok', today: deps.service.today() } }))
+  app.route('/', createSessionRoutes({ codec, ownerPassword: deps.ownerPassword }))
 
-  app.use('/api/*', ...guard)
+  app.use('/api/*', ...apiGuard)
+  app.get('/api/session', (c) => c.json({ success: true, data: { authenticated: true }, meta: { today: deps.service.today() } }))
   app.route('/api', createApiRoutes(deps.service))
 
-  app.all('/mcp', ...guard, async (c) => {
+  app.all('/mcp', ...mcpGuard, async (c) => {
     await logMcpRequest(c)
     const server = createMcpServer(deps.service)
     const transport = new StreamableHTTPTransport()
@@ -66,6 +78,8 @@ export function createApp(deps: AppDeps): Hono {
     if (res === undefined) throw new Error('MCP transport가 응답을 만들지 못했습니다')
     return closeWhenDone(res, server)
   })
+
+  app.use('/*', serveStatic({ root: deps.webRoot ?? DEFAULT_WEB_ROOT }))
 
   return app
 }

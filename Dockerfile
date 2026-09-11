@@ -23,6 +23,7 @@ ENV NODE_ENV=production \
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 COPY --from=build /app/dist ./dist
+COPY web ./web
 RUN mkdir -p /app/data && chown -R node:node /app
 
 USER node
