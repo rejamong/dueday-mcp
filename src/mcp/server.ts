@@ -83,6 +83,32 @@ export function createMcpServer(service: TodoService): McpServer {
   )
 
   server.registerTool(
+    'cancel_todo',
+    {
+      title: '할 일 취소',
+      description: '할 일을 취소 상태로 바꾼다(목록·알림에서 빠지지만 기록은 남음). 되돌리려면 reopen=true. 완전히 지우려면 delete_todo.',
+      inputSchema: z.object({ id: idSchema, reopen: z.boolean().default(false).describe('true면 취소를 되돌려 open으로') }),
+      outputSchema: envelope(todoOutput),
+    },
+    ({ id, reopen }) => run(async () => ok(await service.cancel(id, reopen), service.today())),
+  )
+
+  server.registerTool(
+    'delete_todo',
+    {
+      title: '할 일 삭제',
+      description: '할 일을 영구 삭제한다. 되돌릴 수 없으므로 사용자가 명시적으로 삭제를 요청했을 때만 쓴다. 단순히 안 하기로 한 일은 cancel_todo.',
+      inputSchema: z.object({ id: idSchema }),
+      outputSchema: envelope(z.object({ id: z.string(), deleted: z.literal(true) })),
+    },
+    ({ id }) =>
+      run(async () => {
+        await service.remove(id)
+        return ok({ id, deleted: true as const }, service.today())
+      }),
+  )
+
+  server.registerTool(
     'upcoming',
     {
       title: '다가올 할 일',

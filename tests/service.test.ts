@@ -136,6 +136,35 @@ describe('TodoService.update / complete', () => {
   })
 })
 
+describe('TodoService.cancel / remove', () => {
+  it('cancels (reversible) and hard-deletes with its tag links and sync log', async () => {
+    const { service, db } = makeService()
+    const todo = await service.add({ title: '취소할 일', due: '2026-09-15', tags: ['x'] })
+    const cancelled = await service.cancel(todo.id)
+    expect(cancelled.status).toBe('cancelled')
+    expect(cancelled.done_at).toBeNull()
+    expect((await service.list({})).total).toBe(0)
+    expect((await service.list({ status: 'cancelled' })).items.map((t) => t.id)).toEqual([todo.id])
+    expect((await service.upcoming({})).later).toEqual([])
+    const restored = await service.cancel(todo.id, true)
+    expect(restored.status).toBe('open')
+
+    await service.remove(todo.id)
+    expect(() => service.get(todo.id)).toThrow(NotFoundError)
+    expect((await service.listTags()).find((t) => t.name === 'x')?.open_count).toBe(0)
+    expect((db.prepare('SELECT COUNT(*) AS n FROM todo_tags WHERE todo_id = ?').get(todo.id) as { n: number }).n).toBe(0)
+    await expect(service.remove(todo.id)).rejects.toThrow(NotFoundError)
+  })
+
+  it('completing a cancelled todo reopens it into done, and cancelling a done todo is allowed', async () => {
+    const { service } = makeService()
+    const todo = await service.add({ title: 'a' })
+    await service.cancel(todo.id)
+    expect((await service.complete(todo.id)).status).toBe('done')
+    expect((await service.cancel(todo.id)).status).toBe('cancelled')
+  })
+})
+
 describe('TodoService.upcoming / listTags', () => {
   it('groups relative to today in Seoul and counts open todos per tag', async () => {
     const { service } = makeService()

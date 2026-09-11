@@ -194,4 +194,20 @@ describe('/api/tags', () => {
       { name: 'x', color: null, open_count: 1 },
     ])
   })
+
+  it('POST /todos/:id/cancel toggles cancelled/open and DELETE /todos/:id removes', async () => {
+    const { app } = makeApp()
+    const created = await app.request('/api/todos', authed(json({ title: '취소 대상', due: '2026-09-15' })))
+    const { data } = (await created.json()) as { data: { id: string } }
+    const cancelled = await app.request(`/api/todos/${data.id}/cancel`, authed(json({})))
+    expect(cancelled.status).toBe(200)
+    expect(((await cancelled.json()) as { data: { status: string } }).data.status).toBe('cancelled')
+    const restored = await app.request(`/api/todos/${data.id}/cancel`, authed(json({ reopen: true })))
+    expect(((await restored.json()) as { data: { status: string } }).data.status).toBe('open')
+    const removed = await app.request(`/api/todos/${data.id}`, authed({ method: 'DELETE' }))
+    expect(removed.status).toBe(200)
+    expect(((await removed.json()) as { data: { id: string } }).data.id).toBe(data.id)
+    expect((await app.request(`/api/todos/${data.id}`, authed({}))).status).toBe(404)
+    expect((await app.request(`/api/todos/${data.id}`, authed({ method: 'DELETE' }))).status).toBe(404)
+  })
 })

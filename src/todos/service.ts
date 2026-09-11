@@ -6,7 +6,7 @@ import { disabledBrainSync, type BrainSync, type BrainSyncEvent } from '../brain
 import { insertSyncLog } from '../brain/log.js'
 import { ensureTags, listTagsWithOpenCount, normalizeTagNames, replaceTodoTags } from '../tags/repository.js'
 import { parseDue, todayInSeoul, toSeoulIso } from './dates.js'
-import { findTodo, insertTodo, listOpenTodos, listTodos, updateTodo, type TodoPage, type TodoPatch } from './repository.js'
+import { deleteTodo, findTodo, insertTodo, listOpenTodos, listTodos, updateTodo, type TodoPage, type TodoPatch } from './repository.js'
 import {
   addTodoSchema,
   idSchema,
@@ -115,6 +115,22 @@ export class TodoService {
     const todo = this.get(existing.id)
     if (!reopen) await this.syncBrain('done', todo)
     return todo
+  }
+
+  /** Soft cancel (status = cancelled). `reopen` puts it back to open. Never touches brain sync. */
+  async cancel(id: string, reopen = false): Promise<Todo> {
+    const existing = this.get(id)
+    const now = toSeoulIso(this.clock.now())
+    updateTodo(this.db, existing.id, reopen
+      ? { status: 'open', done_at: null, updated_at: now }
+      : { status: 'cancelled', done_at: null, updated_at: now })
+    return this.get(existing.id)
+  }
+
+  /** Permanent delete. Tag links and sync log rows cascade. */
+  async remove(id: string): Promise<void> {
+    const existing = this.get(id)
+    if (!deleteTodo(this.db, existing.id)) throw new NotFoundError(`할 일을 찾을 수 없습니다: ${id}`)
   }
 
   async upcoming(input: unknown): Promise<UpcomingResult> {

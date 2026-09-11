@@ -38,7 +38,9 @@ describe('MCP server', () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'add_todo',
+      'cancel_todo',
       'complete_todo',
+      'delete_todo',
       'list_tags',
       'list_todos',
       'upcoming',
@@ -73,6 +75,18 @@ describe('MCP server', () => {
 
     const tags = await call<Array<{ name: string; open_count: number }>>(client, 'list_tags', {})
     expect(tags.data).toEqual([{ name: 'x', color: null, open_count: 0 }])
+  })
+
+  it('cancel_todo and delete_todo round-trip', async () => {
+    const added = await call<{ id: string }>(client, 'add_todo', { title: 'x' })
+    const cancelled = await call<{ status: string }>(client, 'cancel_todo', { id: added.data.id })
+    expect(cancelled.data.status).toBe('cancelled')
+    const restored = await call<{ status: string }>(client, 'cancel_todo', { id: added.data.id, reopen: true })
+    expect(restored.data.status).toBe('open')
+    const deleted = await call<{ id: string; deleted: boolean }>(client, 'delete_todo', { id: added.data.id })
+    expect(deleted.data).toEqual({ id: added.data.id, deleted: true })
+    const gone = await client.callTool({ name: 'delete_todo', arguments: { id: added.data.id } })
+    expect(gone.isError).toBe(true)
   })
 
   it('upcoming groups by today and includes a summary', async () => {

@@ -2,7 +2,7 @@
 
 개인 할 일을 **ChatGPT / Claude 챗에서 MCP로** 관리하는 작은 서버입니다. 마감일과 함께 *준비 시작일*(`due - lead_days`)을 계산해서, 일 단위 예약 작업이 "지금부터 준비해야 하는 일"을 알려줄 수 있게 설계했습니다.
 
-- **MCP 도구 6개**: `add_todo`, `list_todos`, `update_todo`, `complete_todo`, `upcoming`, `list_tags`
+- **MCP 도구 8개**: `add_todo`, `list_todos`, `update_todo`, `complete_todo`, `cancel_todo`, `delete_todo`, `upcoming`, `list_tags`
 - **REST API**: 같은 서비스 계층을 `/api/*`로 노출 (웹 UI용)
 - **저장소**: SQLite (`node:sqlite` 내장, 네이티브 빌드 불필요)
 - **인증**: 내장 OAuth 2.1(PKCE, 사전 등록 공개 클라이언트, DCR 없음) 또는 정적 Bearer 토큰, 클라이언트별 요청 제한, 64KB 본문 제한
@@ -79,6 +79,8 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `list_todos` | 조회. `status`, `tag`, `due_before`, `due_after`, `q`, `limit`, `offset` |
 | `update_todo` | 부분 수정. 바꿀 필드만 최상위에. `due: null`이면 마감 제거 |
 | `complete_todo` | 완료 / `reopen: true`로 되돌리기 |
+| `cancel_todo` | 취소(목록·알림에서 제외, 기록 유지) / `reopen: true`로 되살리기 |
+| `delete_todo` | 영구 삭제. 명시적 요청 시에만 |
 | `upcoming` | 알림용. `overdue`, `start_now`, `later`, `no_due` 그룹 + 한 줄 `summary` |
 | `list_tags` | 태그와 미완료 개수 |
 
@@ -92,9 +94,9 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 너는 내 할 일 비서다. 할 일 저장소는 dueday 커넥터(MCP) 하나뿐이다.
 
 [절대 규칙]
-- 할 일 등록·조회·수정·완료는 반드시 dueday 도구(add_todo, list_todos, update_todo, complete_todo, upcoming, list_tags)로 처리한다.
+- 할 일 등록·조회·수정·완료·취소는 반드시 dueday 도구(add_todo, list_todos, update_todo, complete_todo, cancel_todo, upcoming, list_tags)로 처리한다.
 - ChatGPT 자체 예약(리마인더)·메모·캔버스 기능으로 대신하지 않는다. 도구를 쓸 수 없으면 "dueday 커넥터가 이 대화에 켜져 있지 않다"고 알리고 멈춘다.
-- 항목을 삭제하지 않는다. 완료 처리만 한다.
+- "안 해도 된다/없던 일로"는 cancel_todo(되돌릴 수 있음). delete_todo는 내가 "삭제"라고 명시했을 때만 쓰고, 실행 전에 제목을 확인받는다.
 
 [날짜]
 - 모든 날짜는 Asia/Seoul. 기준일은 도구 응답의 meta.today를 쓴다.

@@ -167,6 +167,38 @@
       ]
     },
     {
+      "name": "cancel_todo",
+      "description": "할 일을 취소 상태로 바꾼다(목록·알림에서 제외, 기록은 유지). reopen=true로 되돌린다.",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        },
+        "reopen": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "output": "Todo",
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
+      "name": "delete_todo",
+      "description": "할 일을 영구 삭제한다. 되돌릴 수 없으므로 명시적 요청 시에만. 태그 연결과 동기화 로그도 함께 삭제.",
+      "input": {
+        "id": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "output": "{ id, deleted: true }",
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
       "name": "upcoming",
       "description": "일 단위 알림용. 오늘 기준으로 '지금부터 준비해야 하는' 미완료 할 일을 그룹으로 돌려준다. overdue(마감 지남), start_now(prep_start <= today), later(days 이내지만 아직 준비 시작 전).",
       "input": {

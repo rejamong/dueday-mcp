@@ -111,3 +111,9 @@ export function updateTodo(db: Db, id: string, patch: TodoPatch): void {
   const values = entries.map(([, value]) => value as string | number | null)
   db.prepare(`UPDATE todos SET ${assignments} WHERE id = ?`).run(...values, id)
 }
+
+/** Hard delete; todo_tags and brain_sync_log rows cascade via foreign keys. Returns whether a row was removed. */
+export function deleteTodo(db: Db, id: string): boolean {
+  const result = db.prepare('DELETE FROM todos WHERE id = ?').run(id)
+  return Number(result.changes) > 0
+}

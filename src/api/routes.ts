@@ -51,6 +51,19 @@ export function createApiRoutes(service: TodoService): Hono {
     return ok(c, todo, service.today())
   })
 
+  app.post('/todos/:id/cancel', async (c) => {
+    const body = await readJsonBody(c)
+    const reopen = typeof body === 'object' && body !== null && 'reopen' in body ? Boolean((body as { reopen?: unknown }).reopen) : false
+    const todo = await service.cancel(c.req.param('id'), reopen)
+    return ok(c, todo, service.today())
+  })
+
+  app.delete('/todos/:id', async (c) => {
+    const id = c.req.param('id')
+    await service.remove(id)
+    return ok(c, { id, deleted: true }, service.today())
+  })
+
   app.get('/upcoming', async (c) => {
     const days = toNumber(c.req.query('days'))
     const result = await service.upcoming(days === undefined ? {} : { days })
