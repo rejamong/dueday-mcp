@@ -79,7 +79,14 @@ export function createApp(deps: AppDeps): Hono {
     return closeWhenDone(res, server)
   })
 
-  app.use('/*', serveStatic({ root: deps.webRoot ?? DEFAULT_WEB_ROOT }))
+  app.use(
+    '/*',
+    serveStatic({
+      root: deps.webRoot ?? DEFAULT_WEB_ROOT,
+      // Personal app behind Cloudflare: always revalidate so deploys show up immediately.
+      onFound: (_path, c) => c.header('Cache-Control', 'no-cache'),
+    }),
+  )
 
   return app
 }

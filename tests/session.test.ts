@@ -107,6 +107,7 @@ describe('static web root', () => {
     const js = await app.request('/app.js')
     expect(js.status).toBe(200)
     expect(js.headers.get('content-type')).toContain('javascript')
+    expect(js.headers.get('cache-control')).toBe('no-cache')
     expect((await app.request('/api/nope')).status).toBe(401)
     expect((await app.request('/definitely-missing.png')).status).toBe(404)
   })
