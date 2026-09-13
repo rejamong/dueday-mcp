@@ -86,7 +86,11 @@
 
 /* Section headers + grid */
 .goals-section { display: flex; flex-direction: column; gap: var(--sp-3); }
-.goals-section-header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); }
+.goals-section-header { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); }
+.goals-section-header .goals-section-count { flex: 1; }
+.goals-section-add { margin-left: auto; padding: 4px 10px; font-size: 13px; }
+.goals-section-empty-add { display: block; width: 100%; cursor: pointer; font: inherit; background: transparent; }
+.goals-section-empty-add:hover, .goals-section-empty-add:focus-visible { border-color: var(--accent); color: var(--ink); }
 .goals-section-heading { font-size: 18px; font-weight: 700; margin: 0; }
 .goals-section-count { font-family: var(--font-mono); font-size: 13px; color: var(--soft); }
 .goals-section-empty { padding: var(--sp-4); color: var(--soft); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md); }
