@@ -10,6 +10,8 @@ export const todoOutput = z.object({
   status: z.enum(['open', 'done', 'cancelled']),
   tags: z.array(z.string()),
   brain_ref: z.string().nullable(),
+  goal_id: z.string().nullable(),
+  goal_tag: z.string().nullable(),
   source: z.enum(['mcp', 'web']),
   created_at: z.string(),
   updated_at: z.string(),
@@ -36,3 +38,18 @@ export const tagSummaryOutput = z.object({
   color: z.string().nullable(),
   open_count: z.number().int(),
 })
+
+export const goalOutput = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    tag: z.string(),
+    kind: z.enum(['life', 'annual', 'long']),
+    status: z.string(),
+    percent: z.number(),
+    time_percent: z.number().nullable(),
+    status_label: z.string(),
+    metrics: z.array(z.record(z.string(), z.unknown())),
+    todos: z.object({ open: z.number(), done: z.number() }),
+  })
+  .passthrough()

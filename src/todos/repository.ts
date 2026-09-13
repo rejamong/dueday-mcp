@@ -3,13 +3,14 @@ import { prepStart } from './dates.js'
 import type { ListTodosInput } from './schemas.js'
 import type { Todo, TodoRow } from './types.js'
 
-type RawRow = TodoRow & { tag_csv: string | null }
+type RawRow = TodoRow & { tag_csv: string | null; goal_tag: string | null }
 
 const SELECT_TODO = `
   SELECT t.*,
          (SELECT group_concat(name, ',') FROM (
             SELECT tg.name FROM todo_tags tt JOIN tags tg ON tg.id = tt.tag_id
-             WHERE tt.todo_id = t.id ORDER BY tg.name)) AS tag_csv
+             WHERE tt.todo_id = t.id ORDER BY tg.name)) AS tag_csv,
+         (SELECT g.tag FROM goals g WHERE g.id = t.goal_id) AS goal_tag
     FROM todos t`
 
 function toTodo(row: RawRow): Todo {
@@ -21,10 +22,13 @@ function toTodo(row: RawRow): Todo {
   }
 }
 
+/** `undefined` = no goal filter, `null` = only unlinked (일상), string = that goal id. */
+export type GoalFilter = string | null | undefined
+
 export function insertTodo(db: Db, row: TodoRow): void {
   db.prepare(
-    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, source, created_at, updated_at, done_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, source, created_at, updated_at, done_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     row.id,
     row.title,
@@ -33,6 +37,7 @@ export function insertTodo(db: Db, row: TodoRow): void {
     row.lead_days,
     row.status,
     row.brain_ref,
+    row.goal_id,
     row.source,
     row.created_at,
     row.updated_at,
@@ -50,9 +55,14 @@ interface WhereClause {
   readonly params: ReadonlyArray<string | number>
 }
 
-function buildWhere(filter: ListTodosInput): WhereClause {
+function buildWhere(filter: ListTodosInput, goal: GoalFilter): WhereClause {
   const clauses: string[] = []
   const params: Array<string | number> = []
+  if (goal === null) clauses.push('t.goal_id IS NULL')
+  else if (goal !== undefined) {
+    clauses.push('t.goal_id = ?')
+    params.push(goal)
+  }
   if (filter.status !== 'all') {
     clauses.push('t.status = ?')
     params.push(filter.status)
@@ -82,8 +92,8 @@ export interface TodoPage {
   readonly total: number
 }
 
-export function listTodos(db: Db, filter: ListTodosInput): TodoPage {
-  const where = buildWhere(filter)
+export function listTodos(db: Db, filter: ListTodosInput, goal: GoalFilter = undefined): TodoPage {
+  const where = buildWhere(filter, goal)
   const total = (
     db.prepare(`SELECT COUNT(*) AS n FROM todos t ${where.sql}`).get(...where.params) as { n: number }
   ).n
@@ -98,10 +108,15 @@ export function listOpenTodos(db: Db): Todo[] {
   return rows.map(toTodo)
 }
 
+export function listOpenTodosForGoal(db: Db, goalId: string): Todo[] {
+  const rows = db.prepare(`${SELECT_TODO} WHERE t.goal_id = ? AND t.status = 'open' ORDER BY t.due_at IS NULL, t.due_at ASC, t.id ASC`).all(goalId) as unknown as RawRow[]
+  return rows.map(toTodo)
+}
+
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>
 
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
-  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'updated_at', 'done_at',
+  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'updated_at', 'done_at',
 ])
 
 export function updateTodo(db: Db, id: string, patch: TodoPatch): void {

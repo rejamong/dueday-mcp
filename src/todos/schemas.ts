@@ -31,6 +31,12 @@ const leadDaysSchema = z.number().int().min(0).max(60).describe('마감 며칠 �
 const tagsSchema = z.array(tagNameSchema).max(10).describe('태그 목록. 소문자로 정규화되며 없는 태그는 자동 생성')
 
 /** Inputs are intentionally non-strict: LLM callers occasionally add keys, and stripping beats failing. */
+export const goalRefSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe('연결할 목표의 태그(또는 id). 먼저 list_goals로 활성 목표 태그를 보고, 분명히 속하는 목표가 있을 때만 넣는다. 없으면 비워 두면 일상으로 분류된다')
+
 export const addTodoSchema = z.object({
   title: titleSchema,
   due: dueSchema.optional(),
@@ -38,6 +44,7 @@ export const addTodoSchema = z.object({
   lead_days: leadDaysSchema.default(3),
   note: noteSchema.optional(),
   brain_ref: brainRefSchema.optional(),
+  goal: goalRefSchema.optional(),
 })
 
 export const updateTodoFields = z.object({
@@ -47,6 +54,7 @@ export const updateTodoFields = z.object({
   lead_days: leadDaysSchema.optional(),
   note: noteSchema.nullable().optional(),
   brain_ref: brainRefSchema.nullable().optional(),
+  goal: goalRefSchema.nullable().optional().describe('목표 태그로 연결, null이면 연결 해제(일상)'),
 })
 
 export const updateTodoSchema = updateTodoFields.refine(
@@ -60,6 +68,7 @@ export const listTodosSchema = z.object({
   due_before: dateOnlySchema.optional().describe('마감이 이 날짜(YYYY-MM-DD) 이하인 항목만, 경계 포함'),
   due_after: dateOnlySchema.optional().describe('마감이 이 날짜(YYYY-MM-DD) 이상인 항목만, 경계 포함'),
   q: z.string().trim().min(1).max(100).optional().describe('제목/메모 부분 일치 검색'),
+  goal: z.string().trim().min(1).optional().describe('목표 태그로 필터. "none"이면 목표에 연결되지 않은 일상 항목만'),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0).describe('건너뛸 개수 (페이지네이션)'),
 })

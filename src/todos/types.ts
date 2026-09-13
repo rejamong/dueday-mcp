@@ -9,6 +9,7 @@ export interface TodoRow {
   readonly lead_days: number
   readonly status: TodoStatus
   readonly brain_ref: string | null
+  readonly goal_id: string | null
   readonly source: TodoSource
   readonly created_at: string
   readonly updated_at: string
@@ -18,6 +19,8 @@ export interface TodoRow {
 export interface Todo extends TodoRow {
   readonly prep_start: string | null
   readonly tags: readonly string[]
+  /** Tag of the linked goal; null means 일상 (not tied to a goal). */
+  readonly goal_tag: string | null
 }
 
 export interface TagSummary {

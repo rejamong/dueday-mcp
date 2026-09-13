@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.js'
 import { openDatabase, type Db } from '../src/db/connection.js'
 import { TodoService } from '../src/todos/service.js'
+import { GoalService } from '../src/goals/service.js'
 
 interface Envelope<T = unknown> {
   success: boolean
@@ -16,8 +17,10 @@ const TOKEN = 'test-token-value'
 
 function makeApp(): { app: Hono; db: Db } {
   const db = openDatabase(':memory:')
-  const service = new TodoService({ db, clock: { now: () => fixedNow } })
-  const app = createApp({ service, apiToken: TOKEN })
+  const clock = { now: () => fixedNow }
+  const goals = new GoalService({ db, clock })
+  const service = new TodoService({ db, clock, goals })
+  const app = createApp({ service, goals, apiToken: TOKEN })
   return { app, db }
 }
 
@@ -219,5 +222,27 @@ describe('/api/tags', () => {
     const body = (await page.json()) as { data: Array<{ title: string }>; meta: { total: number } }
     expect(body.meta.total).toBe(3)
     expect(body.data.map((t) => t.title)).toEqual(['p3'])
+  })
+
+  it('goal routes: create, list, detail, patch, checkins, and todo goal filter', async () => {
+    const { app } = makeApp()
+    const created = await app.request('/api/goals', authed(json({ title: '독서', kind: 'annual', tag: 'reading', year: 2026, metrics: [{ name: '읽은 책', kind: 'count', target_value: 15 }] })))
+    expect(created.status).toBe(201)
+    const list = (await (await app.request('/api/goals', authed({}))).json()) as { data: Array<{ tag: string }> }
+    expect(list.data.map((g) => g.tag)).toEqual(['reading'])
+    const checkin = await app.request('/api/goals/reading/checkins', authed(json({ value: 5, note: '9월' })))
+    expect(checkin.status).toBe(201)
+    const detail = (await (await app.request('/api/goals/reading', authed({}))).json()) as { data: { percent: number; checkins: unknown[] } }
+    expect(detail.data.percent).toBe(33)
+    expect(detail.data.checkins).toHaveLength(1)
+    await app.request('/api/todos', authed(json({ title: '책 주문', goal: 'reading' })))
+    await app.request('/api/todos', authed(json({ title: '세탁' })))
+    const linked = (await (await app.request('/api/todos?goal=reading', authed({}))).json()) as { data: Array<{ title: string; goal_tag: string }> }
+    expect(linked.data.map((t) => [t.title, t.goal_tag])).toEqual([['책 주문', 'reading']])
+    const daily = (await (await app.request('/api/todos?goal=none', authed({}))).json()) as { data: Array<{ title: string }> }
+    expect(daily.data.map((t) => t.title)).toEqual(['세탁'])
+    const patched = await app.request('/api/goals/reading', authed({ ...json({ status: 'done' }), method: 'PATCH' }))
+    expect(((await patched.json()) as { data: { status_label: string } }).data.status_label).toBe('done')
+    expect((await app.request('/api/goals/nope', authed({}))).status).toBe(404)
   })
 })

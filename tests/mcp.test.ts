@@ -4,6 +4,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { openDatabase } from '../src/db/connection.js'
 import { createMcpServer } from '../src/mcp/server.js'
 import { TodoService } from '../src/todos/service.js'
+import { GoalService } from '../src/goals/service.js'
 
 interface Envelope<T> {
   success: boolean
@@ -13,8 +14,10 @@ interface Envelope<T> {
 
 async function connectedClient(): Promise<Client> {
   const db = openDatabase(':memory:')
-  const service = new TodoService({ db, clock: { now: () => new Date('2026-09-11T01:00:00Z') } })
-  const server = createMcpServer(service)
+  const clock = { now: () => new Date('2026-09-11T01:00:00Z') }
+  const goals = new GoalService({ db, clock })
+  const service = new TodoService({ db, clock, goals })
+  const server = createMcpServer(service, goals)
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   const client = new Client({ name: 'test-client', version: '0.0.1' })
   await server.connect(serverTransport)
@@ -37,13 +40,18 @@ describe('MCP server', () => {
   it('exposes the six tools with descriptions', async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'add_goal',
       'add_todo',
       'cancel_todo',
       'complete_todo',
       'delete_todo',
+      'goal_progress',
+      'list_goals',
       'list_tags',
       'list_todos',
+      'log_progress',
       'upcoming',
+      'update_goal',
       'update_todo',
     ])
     expect(tools.every((t) => (t.description ?? '').length > 10)).toBe(true)
@@ -87,6 +95,27 @@ describe('MCP server', () => {
     expect(deleted.data).toEqual({ id: added.data.id, deleted: true })
     const gone = await client.callTool({ name: 'delete_todo', arguments: { id: added.data.id } })
     expect(gone.isError).toBe(true)
+  })
+
+  it('goal tools: add_goal, log_progress, goal_progress, and add_todo with goal', async () => {
+    const goal = await call<{ id: string; tag: string; percent: number }>(client, 'add_goal', {
+      title: '15권 이상 독서', kind: 'annual', tag: 'reading', year: 2026,
+      metrics: [{ name: '읽은 책', kind: 'count', direction: 'gte', target_value: 15, unit: '권' }],
+    })
+    expect(goal.data.tag).toBe('reading')
+    const logged = await call<{ goal: { percent: number }; metric: { current_value: number } }>(client, 'log_progress', { goal: 'reading', value: 3 })
+    expect(logged.data.metric.current_value).toBe(3)
+    expect(logged.data.goal.percent).toBe(20)
+    const todo = await call<{ goal_tag: string | null }>(client, 'add_todo', { title: '책 주문', goal: 'reading' })
+    expect(todo.data.goal_tag).toBe('reading')
+    const detail = await call<{ todos: { open: number }; checkins: unknown[]; open_todos: unknown[] }>(client, 'goal_progress', { goal: 'reading' })
+    expect(detail.data.todos.open).toBe(1)
+    expect(detail.data.checkins).toHaveLength(1)
+    expect(detail.data.open_todos).toHaveLength(1)
+    const listed = await call<Array<{ tag: string; status_label: string }>>(client, 'list_goals', {})
+    expect(listed.data.map((g) => g.tag)).toEqual(['reading'])
+    const updated = await call<{ status: string }>(client, 'update_goal', { goal: 'reading', status: 'paused' })
+    expect(updated.data.status).toBe('paused')
   })
 
   it('upcoming groups by today and includes a summary', async () => {

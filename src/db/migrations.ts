@@ -74,6 +74,49 @@ const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_oauth_tokens_family ON oauth_tokens (family_id);
     `,
   },
+  {
+    version: 3,
+    sql: `
+      CREATE TABLE IF NOT EXISTS goals (
+        id TEXT PRIMARY KEY,
+        parent_id TEXT REFERENCES goals (id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        tag TEXT NOT NULL UNIQUE,
+        kind TEXT NOT NULL CHECK (kind IN ('life', 'annual', 'long')),
+        period_start TEXT,
+        period_end TEXT,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'done', 'paused', 'dropped')),
+        why TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS goal_metrics (
+        id TEXT PRIMARY KEY,
+        goal_id TEXT NOT NULL REFERENCES goals (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('count', 'value', 'boolean')),
+        direction TEXT NOT NULL CHECK (direction IN ('gte', 'lte', 'maintain')),
+        target_value REAL NOT NULL,
+        unit TEXT,
+        baseline_value REAL,
+        cadence TEXT CHECK (cadence IN ('monthly', 'weekly')),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (goal_id, name)
+      );
+      CREATE TABLE IF NOT EXISTS goal_checkins (
+        id TEXT PRIMARY KEY,
+        metric_id TEXT NOT NULL REFERENCES goal_metrics (id) ON DELETE CASCADE,
+        value REAL NOT NULL,
+        note TEXT,
+        source TEXT NOT NULL DEFAULT 'mcp' CHECK (source IN ('mcp', 'web')),
+        logged_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_goal_checkins_metric ON goal_checkins (metric_id, logged_at);
+      ALTER TABLE todos ADD COLUMN goal_id TEXT REFERENCES goals (id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS idx_todos_goal ON todos (goal_id);
+    `,
+  },
 ]
 
 export function runMigrations(db: DatabaseSync): void {

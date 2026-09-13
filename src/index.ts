@@ -7,6 +7,7 @@ import { loadConfig } from './config.js'
 import { openDatabase } from './db/connection.js'
 import { OAuthService } from './oauth/service.js'
 import { TodoService } from './todos/service.js'
+import { GoalService } from './goals/service.js'
 
 async function buildBrainSync(config: ReturnType<typeof loadConfig>): Promise<BrainSync> {
   const gbrain = config.gbrain
@@ -28,12 +29,14 @@ async function main(): Promise<void> {
   mkdirSync(dirname(config.dbPath), { recursive: true })
   const db = openDatabase(config.dbPath)
   const brainSync = await buildBrainSync(config)
-  const service = new TodoService({ db, brainSync })
+  const goals = new GoalService({ db })
+  const service = new TodoService({ db, brainSync, goals })
   const oauth = config.oauth
     ? new OAuthService({ db, resourcePath: '/mcp', ...config.oauth })
     : undefined
   const app = createApp({
     service,
+    goals,
     apiToken: config.apiToken,
     rateLimitPerMinute: config.rateLimitPerMinute,
     ...(oauth ? { oauth } : {}),

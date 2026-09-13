@@ -22,10 +22,16 @@ export interface Clock {
   now(): Date
 }
 
+export interface GoalResolver {
+  resolve(ref: string): { readonly id: string }
+}
+
 export interface TodoServiceDeps {
   readonly db: Db
   readonly clock?: Clock
   readonly brainSync?: BrainSync
+  /** Resolves goal tags/ids for the `goal` field; without it, goal linking is rejected. */
+  readonly goals?: GoalResolver
 }
 
 const systemClock: Clock = { now: () => new Date() }
@@ -41,15 +47,29 @@ function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
   return out as TodoPatch
 }
 
+const NO_GOALS: GoalResolver = {
+  resolve: () => {
+    throw new NotFoundError('목표 기능이 설정되지 않았습니다')
+  },
+}
+
 export class TodoService {
   private readonly db: Db
   private readonly clock: Clock
   private readonly brainSync: BrainSync
+  private readonly goals: GoalResolver
 
   constructor(deps: TodoServiceDeps) {
     this.db = deps.db
     this.clock = deps.clock ?? systemClock
     this.brainSync = deps.brainSync ?? disabledBrainSync
+    this.goals = deps.goals ?? NO_GOALS
+  }
+
+  private goalIdOf(ref: string | null | undefined): string | null | undefined {
+    if (ref === undefined) return undefined
+    if (ref === null) return null
+    return this.goals.resolve(ref).id
   }
 
   today(): string {
@@ -61,6 +81,7 @@ export class TodoService {
     const now = toSeoulIso(this.clock.now())
     const id = nextUlid(this.clock.now().getTime())
     const tagNames = normalizeTagNames(data.tags)
+    const goalId = this.goalIdOf(data.goal) ?? null
     this.transaction(() => {
       insertTodo(this.db, {
         id,
@@ -70,6 +91,7 @@ export class TodoService {
         lead_days: data.lead_days,
         status: 'open',
         brain_ref: data.brain_ref ?? null,
+        goal_id: goalId,
         source,
         created_at: now,
         updated_at: now,
@@ -90,15 +112,17 @@ export class TodoService {
 
   async list(input: unknown): Promise<TodoPage> {
     const filter = parseOrThrow(listTodosSchema, input)
-    return listTodos(this.db, { ...filter, ...(filter.tag !== undefined ? { tag: normalizeTagNames([filter.tag])[0] ?? '' } : {}) })
+    const goal = filter.goal === undefined ? undefined : filter.goal === 'none' ? null : this.goals.resolve(filter.goal).id
+    return listTodos(this.db, { ...filter, ...(filter.tag !== undefined ? { tag: normalizeTagNames([filter.tag])[0] ?? '' } : {}) }, goal)
   }
 
   async update(id: string, input: unknown): Promise<Todo> {
     const existing = this.get(id)
     const patch = parseOrThrow(updateTodoSchema, input)
     const now = toSeoulIso(this.clock.now())
+    const goalId = this.goalIdOf(patch.goal)
     this.transaction(() => {
-      updateTodo(this.db, existing.id, { ...rowPatchFrom(patch), updated_at: now })
+      updateTodo(this.db, existing.id, { ...rowPatchFrom(patch), ...(goalId !== undefined ? { goal_id: goalId } : {}), updated_at: now })
       if (patch.tags !== undefined) {
         replaceTodoTags(this.db, existing.id, ensureTags(this.db, normalizeTagNames(patch.tags), now))
       }

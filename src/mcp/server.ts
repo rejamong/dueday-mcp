@@ -5,6 +5,8 @@ import { NotFoundError, ValidationError } from '../errors.js'
 import { addTodoSchema, idSchema, listTodosSchema, updateTodoFields, upcomingSchema } from '../todos/schemas.js'
 import type { TodoService } from '../todos/service.js'
 import { envelope, tagSummaryOutput, todoOutput, upcomingOutput } from './output.js'
+import { registerGoalTools } from './goal-tools.js'
+import type { GoalService } from '../goals/service.js'
 
 export const SERVER_INFO = { name: 'dueday-mcp', version: '0.1.0' } as const
 
@@ -31,14 +33,15 @@ async function run(work: () => Promise<CallToolResult>): Promise<CallToolResult>
   }
 }
 
-export function createMcpServer(service: TodoService): McpServer {
+export function createMcpServer(service: TodoService, goals?: GoalService): McpServer {
   const server = new McpServer(SERVER_INFO)
+  if (goals) registerGoalTools(server, goals, ok, run)
 
   server.registerTool(
     'add_todo',
     {
       title: '할 일 추가',
-      description: `새 할 일을 등록한다. ${DATE_HINT} 기존 태그를 재사용하려면 먼저 list_tags를 본다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`,
+      description: `새 할 일을 등록한다. ${DATE_HINT} 기존 태그를 재사용하려면 먼저 list_tags를 본다. 할 일이 어떤 목표(list_goals)에 분명히 속하면 goal에 그 목표 태그를 넣고, 아니면 비워 일상으로 둔다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`,
       inputSchema: addTodoSchema,
       outputSchema: envelope(todoOutput),
     },

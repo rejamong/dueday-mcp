@@ -14,9 +14,11 @@ import { createMcpServer } from './mcp/server.js'
 import { createOAuthRoutes } from './oauth/routes.js'
 import type { OAuthService } from './oauth/service.js'
 import type { TodoService } from './todos/service.js'
+import type { GoalService } from './goals/service.js'
 
 export interface AppDeps {
   readonly service: TodoService
+  readonly goals?: GoalService
   readonly apiToken: string
   readonly rateLimitPerMinute?: number
   /** When present, OAuth 2.1 endpoints are mounted and OAuth access tokens are accepted alongside apiToken. */
@@ -69,11 +71,11 @@ export function createApp(deps: AppDeps): Hono {
 
   app.use('/api/*', ...apiGuard)
   app.get('/api/session', (c) => c.json({ success: true, data: { authenticated: true }, meta: { today: deps.service.today() } }))
-  app.route('/api', createApiRoutes(deps.service))
+  app.route('/api', createApiRoutes(deps.service, deps.goals))
 
   app.all('/mcp', ...mcpGuard, async (c) => {
     await logMcpRequest(c)
-    const server = createMcpServer(deps.service)
+    const server = createMcpServer(deps.service, deps.goals)
     const transport = new StreamableHTTPTransport()
     await server.connect(transport)
     const res = await transport.handleRequest(c)

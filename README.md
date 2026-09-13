@@ -2,7 +2,8 @@
 
 개인 할 일을 **ChatGPT / Claude 챗에서 MCP로** 관리하는 작은 서버입니다. 마감일과 함께 *준비 시작일*(`due - lead_days`)을 계산해서, 일 단위 예약 작업이 "지금부터 준비해야 하는 일"을 알려줄 수 있게 설계했습니다.
 
-- **MCP 도구 8개**: `add_todo`, `list_todos`, `update_todo`, `complete_todo`, `cancel_todo`, `delete_todo`, `upcoming`, `list_tags`
+- **MCP 도구 13개**: 할 일 8개(`add_todo`, `list_todos`, `update_todo`, `complete_todo`, `cancel_todo`, `delete_todo`, `upcoming`, `list_tags`) + 목표 5개(`list_goals`, `add_goal`, `update_goal`, `log_progress`, `goal_progress`)
+- **장기 목표 관리**: 인생 목표 → 연간·장기 목표, 목표당 지표 여러 개(누적·측정값·달성 여부), 체크인 기록, 할 일을 목표에 연결(연결 없으면 일상)
 - **REST API**: 같은 서비스 계층을 `/api/*`로 노출 (웹 UI용)
 - **저장소**: SQLite (`node:sqlite` 내장, 네이티브 빌드 불필요)
 - **인증**: 내장 OAuth 2.1(PKCE, 사전 등록 공개 클라이언트, DCR 없음) 또는 정적 Bearer 토큰, 클라이언트별 요청 제한, 64KB 본문 제한
@@ -83,6 +84,12 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `delete_todo` | 영구 삭제. 명시적 요청 시에만 |
 | `upcoming` | 알림용. `overdue`, `start_now`, `later`, `no_due` 그룹 + 한 줄 `summary` |
 | `list_tags` | 태그와 미완료 개수 |
+| `list_goals` | 인생·연간·장기 목표와 진행률(달성률, 기간 경과율, 상태) |
+| `add_goal` / `update_goal` | 목표와 지표 정의. 지표 kind: count(권·회 누적) / value(kg·명·BTC 측정값) / boolean |
+| `log_progress` | 체크인. "책 한 권 끝냈어" → reading +1, "몸무게 75.8" → weight 75.8 |
+| `goal_progress` | 목표 상세: 지표별 진행, 최근 체크인, 열린 할 일 |
+
+할 일은 `add_todo`의 `goal`(목표 태그)로 목표에 연결됩니다. 연결되지 않은 할 일은 **일상**입니다. 진행률은 지표 달성률의 평균(지표가 없으면 할 일 완료율)이고, 연간 목표는 기간 경과율과 비교해 앞섬 / 순항 / 뒤처짐 / 달성으로 표시됩니다.
 
 상세 명세는 [`docs/mcp-tools.json`](docs/mcp-tools.json), 아키텍처는 [`docs/architecture.html`](docs/architecture.html)에 있습니다.
 
@@ -126,6 +133,11 @@ dueday 커넥터의 upcoming 도구를 days=7로 호출해라. 결과를 이렇�
 3) 이번 주 예정 — 제목, 마감일, 준비 시작일
 4) 마지막 줄에 도구 응답의 summary를 그대로 인용.
 아무것도 없으면 "오늘은 준비 시작할 일이 없음" 한 줄만.
+
+오늘이 월요일이면 마지막에 "주간 목표 리뷰" 블록을 추가한다: list_goals(status=active)를 호출해
+연간 목표를 뒤처짐 → 순항 → 앞섬 → 달성 순으로 나열하고, 각 줄에 제목 · 달성률 vs 기간 경과율 ·
+지표 현재값/목표값을 적는다. 뒤처짐 목표에는 이번 주에 할 만한 행동 하나를 제안하되 제안임을 밝힌다.
+이번 주 체크인이 없는 주기 목표(cadence_met=false)는 "이번 달 아직"으로 따로 표시한다.
 ```
 
 ## 개발

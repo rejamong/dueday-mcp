@@ -2,6 +2,8 @@ import { Hono, type Context } from 'hono'
 import { NotFoundError, ValidationError } from '../errors.js'
 import type { TodoService } from '../todos/service.js'
 import { fail, ok } from './envelope.js'
+import { createGoalRoutes } from './goal-routes.js'
+import type { GoalService } from '../goals/service.js'
 
 function toNumber(value: string | undefined): number | undefined {
   return value === undefined ? undefined : Number(value)
@@ -24,8 +26,9 @@ async function readJsonBody(c: Context): Promise<unknown> {
   return text.trim().length === 0 ? {} : JSON.parse(text)
 }
 
-export function createApiRoutes(service: TodoService): Hono {
+export function createApiRoutes(service: TodoService, goals?: GoalService): Hono {
   const app = new Hono()
+  if (goals) app.route('/goals', createGoalRoutes(goals))
 
   app.get('/todos', async (c) => {
     const page = await service.list(buildListQuery(c))

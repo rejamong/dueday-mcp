@@ -30,7 +30,26 @@
       "source": "mcp | web",
       "created_at": "string (RFC3339)",
       "updated_at": "string (RFC3339)",
-      "done_at": "string (RFC3339) | null"
+      "done_at": "string (RFC3339) | null",
+      "goal_id": "string | null (연결된 목표 id, null = 일상)",
+      "goal_tag": "string | null"
+    },
+    "Goal": {
+      "id": "string (ULID)",
+      "parent_id": "string | null (인생 목표 아래 연간·장기)",
+      "title": "string",
+      "tag": "string (슬러그, unique)",
+      "kind": "life | annual | long",
+      "period_start": "YYYY-MM-DD | null",
+      "period_end": "YYYY-MM-DD | null",
+      "status": "active | done | paused | dropped",
+      "why": "string | null",
+      "metrics": "[{ id, name, kind: count|value|boolean, direction: gte|lte|maintain, target_value, unit, baseline_value, cadence: monthly|weekly|null, current_value, percent, on_track, remaining, cadence_met, last_logged_at }]",
+      "todos": "{ open, done }",
+      "percent": "0-100 (지표 평균; 지표 없으면 할 일 완료율)",
+      "time_percent": "0-100 | null (기간 경과율)",
+      "status_label": "ahead | on_track | behind | done | none",
+      "checkin_count": "int"
     }
   },
   "tools": [
@@ -73,6 +92,11 @@
           "pattern": "^[a-z0-9/_-]+$",
           "required": false,
           "note": "설정 시 생성 이벤트를 gbrain 프로젝트 허브에 동기화"
+        },
+        "goal": {
+          "type": "string",
+          "required": false,
+          "note": "연결할 목표 태그. list_goals로 확인 후 분명할 때만; 없으면 일상"
         }
       },
       "output": "Todo",
@@ -120,6 +144,11 @@
           "min": 0,
           "default": 0,
           "note": "pagination"
+        },
+        "goal": {
+          "type": "string",
+          "required": false,
+          "note": "목표 태그 또는 none(일상만)"
         }
       },
       "output": "Todo[] with meta.total"
@@ -137,7 +166,8 @@
         "tags": "string[]? (전체 교체)",
         "lead_days": "int?",
         "note": "string | null ?",
-        "brain_ref": "string | null ?"
+        "brain_ref": "string | null ?",
+        "goal": "string | null ? (null이면 목표 연결 해제)"
       },
       "output": "Todo",
       "errors": [
@@ -223,6 +253,73 @@
       "description": "태그 목록과 각 태그의 미완료 개수를 돌려준다. add_todo 전에 기존 태그를 재사용하기 위해 호출한다.",
       "input": {},
       "output": "{ name: string, color: string | null, open_count: int }[]"
+    },
+    {
+      "name": "list_goals",
+      "description": "인생·연간·장기 목표를 진행률과 함께. 대화당 한 번 호출해 목표 태그를 파악한다.",
+      "input": {
+        "status": {
+          "type": "active | all",
+          "default": "active"
+        }
+      },
+      "output": "Goal[] (life 목표의 percent는 자식 평균)"
+    },
+    {
+      "name": "add_goal",
+      "description": "목표 생성. kind, tag, year(annual), parent(인생 목표 태그), why, metrics[].",
+      "input": {
+        "title": "string",
+        "kind": "life | annual | long",
+        "tag": "^[a-z0-9][a-z0-9_-]{0,31}$",
+        "parent": "string?",
+        "year": "int?",
+        "period_start": "YYYY-MM-DD?",
+        "period_end": "YYYY-MM-DD?",
+        "why": "string?",
+        "metrics": "[{ name, kind, direction?, target_value, unit?, baseline_value?, cadence? }]"
+      },
+      "output": "Goal"
+    },
+    {
+      "name": "update_goal",
+      "description": "목표 부분 수정. metrics를 주면 전체 교체(같은 이름 지표의 체크인 유지).",
+      "input": {
+        "goal": "tag | id",
+        "title?": "",
+        "tag?": "",
+        "parent?": "string | null",
+        "status?": "active | done | paused | dropped",
+        "period_start?": "",
+        "period_end?": "",
+        "why?": "",
+        "metrics?": "[]"
+      },
+      "output": "Goal",
+      "errors": [
+        "NOT_FOUND",
+        "VALIDATION"
+      ]
+    },
+    {
+      "name": "log_progress",
+      "description": "지표 체크인. count는 증분, value는 측정값, boolean은 1/0. 지표가 하나면 metric 생략 가능.",
+      "input": {
+        "goal": "tag | id",
+        "metric": "string?",
+        "value": "number",
+        "note": "string?",
+        "logged_at": "RFC3339 | YYYY-MM-DD ?"
+      },
+      "output": "{ checkin, metric (progress), goal }"
+    },
+    {
+      "name": "goal_progress",
+      "description": "목표 상세: 지표별 진행, 최근 체크인 30건, 열린 할 일.",
+      "input": {
+        "goal": "tag | id"
+      },
+      "output": "Goal + { checkins[], open_todos[] }"
     }
   ],
   "validation": "zod schemas on every input; unknown keys are stripped (LLM-friendly); strings trimmed; dates parsed with a fixed Asia/Seoul offset",
