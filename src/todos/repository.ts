@@ -127,6 +127,12 @@ export function listOpenTodosForGoal(db: Db, goalId: string): Todo[] {
   return rows.map(toTodo)
 }
 
+/** Most recently completed todos of a goal, newest first (so the detail panel can show and reopen them). */
+export function listDoneTodosForGoal(db: Db, goalId: string, limit: number): Todo[] {
+  const rows = db.prepare(`${SELECT_TODO} WHERE t.goal_id = ? AND t.status = 'done' ORDER BY t.done_at DESC, t.id DESC LIMIT ?`).all(goalId, limit) as unknown as RawRow[]
+  return rows.map(toTodo)
+}
+
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>
 
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([

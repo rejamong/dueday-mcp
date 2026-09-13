@@ -25,6 +25,15 @@ function todosBlock(detail, state, actions) {
   return wrap
 }
 
+/** Recently completed todos of the goal; each row's circle reopens it. */
+function doneTodosBlock(detail, state, actions) {
+  const wrap = createElement('<div class="goal-detail-done"><h4 class="goal-detail-heading">완료</h4></div>')
+  const list = createElement('<div class="goal-detail-todos goal-detail-todos-done"></div>')
+  for (const todo of detail.done_todos ?? []) list.appendChild(renderTodoRow(todo, state, actions, 'goal-done'))
+  wrap.appendChild(list)
+  return wrap
+}
+
 /** Expanded 자세히 panel: recent check-ins + open todos + a shortcut to add a todo for this goal. */
 export function render(goal, state, actions) {
   const detail = state.goalDetails[goal.id]
@@ -46,6 +55,7 @@ export function render(goal, state, actions) {
   } else {
     el.querySelector('.goal-detail-checkins-wrap').appendChild(checkinsBlock(detail))
     el.querySelector('.goal-detail-todos-wrap').appendChild(todosBlock(detail, state, actions))
+    if ((detail.done_todos ?? []).length > 0) el.querySelector('.goal-detail-todos-wrap').appendChild(doneTodosBlock(detail, state, actions))
   }
 
   el.querySelector('.goal-detail-add-todo').addEventListener('click', () => {

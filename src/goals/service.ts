@@ -3,7 +3,7 @@ import type { Db } from '../db/connection.js'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { parseOrThrow } from '../validation.js'
 import { parseDue, todayInSeoul, toSeoulIso } from '../todos/dates.js'
-import { listOpenTodosForGoal } from '../todos/repository.js'
+import { listDoneTodosForGoal, listOpenTodosForGoal } from '../todos/repository.js'
 import type { Clock } from '../todos/service.js'
 import { goalStatus, metricProgress, timePercent } from './progress.js'
 import {
@@ -20,6 +20,7 @@ export interface GoalServiceDeps {
 
 const nextUlid = monotonicFactory()
 const RECENT_CHECKINS = 30
+const RECENT_DONE_TODOS = 20
 const systemClock: Clock = { now: () => new Date() }
 
 function periodOf(input: { kind: string; year?: number | undefined; period_start?: string | undefined; period_end?: string | undefined }, today: string): [string | null, string | null] {
@@ -112,7 +113,7 @@ export class GoalService {
     const goal = this.resolve(ref)
     const base = this.withProgress(goal)
     const checkins = listCheckinsForGoal(this.db, goal.id).slice(-RECENT_CHECKINS).reverse()
-    return { ...base, checkins, open_todos: listOpenTodosForGoal(this.db, goal.id) }
+    return { ...base, checkins, open_todos: listOpenTodosForGoal(this.db, goal.id), done_todos: listDoneTodosForGoal(this.db, goal.id, RECENT_DONE_TODOS) }
   }
 
   async logProgress(ref: string, input: unknown, source: 'mcp' | 'web' = 'mcp'): Promise<{ checkin: CheckinView; metric: MetricWithProgress; goal: GoalWithProgress }> {

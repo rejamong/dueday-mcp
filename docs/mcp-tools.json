@@ -318,11 +318,11 @@
     },
     {
       "name": "goal_progress",
-      "description": "목표 상세: 지표별 진행, 최근 체크인 30건, 열린 할 일.",
+      "description": "목표 상세: 지표별 진행, 최근 체크인 30건, 열린 할 일, 최근 완료 할 일.",
       "input": {
         "goal": "tag | id"
       },
-      "output": "Goal + { checkins[], open_todos[] }"
+      "output": "Goal + { checkins[], open_todos[], done_todos[] (최근 완료 20건, 최신순) }"
     }
   ],
   "validation": "zod schemas on every input; unknown keys are stripped (LLM-friendly); strings trimmed; dates parsed with a fixed Asia/Seoul offset",

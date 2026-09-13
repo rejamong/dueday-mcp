@@ -58,4 +58,6 @@ export interface CheckinView extends CheckinRow {
 export interface GoalDetail extends GoalWithProgress {
   readonly checkins: readonly CheckinView[]
   readonly open_todos: readonly Todo[]
+  /** Recently completed todos (newest first, capped) so they can be reviewed or reopened. */
+  readonly done_todos: readonly Todo[]
 }

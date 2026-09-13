@@ -33,7 +33,14 @@ export function ensureGoalsPageLoaded() {
   if (getState().route === 'goals') {
     void loadUnlinkedTodos()
     void loadSuggestions()
+    void refreshExpandedGoalDetails()
   }
+}
+
+/** Re-fetches the detail of every expanded card so completing/reopening a todo inside a panel shows up immediately. */
+export async function refreshExpandedGoalDetails() {
+  const { goals, expandedGoalIds } = getState()
+  await Promise.all(goals.filter((g) => expandedGoalIds.includes(g.id)).map((g) => loadGoalDetail(g)))
 }
 
 /** Replaces one goal in state.goals with a fresher copy (e.g. after a check-in), immutably. */

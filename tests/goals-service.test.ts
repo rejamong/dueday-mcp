@@ -156,3 +156,20 @@ describe('GoalService short-term goals', () => {
     expect((await goals.list({})).map((g) => g.kind)).toEqual(['life', 'annual', 'short', 'long'])
   })
 })
+
+describe('GoalService detail todos', () => {
+  it('lists open todos and recently completed todos separately', async () => {
+    const { goals, todos } = make()
+    await goals.add({ title: '여행 준비', kind: 'short', tag: 'trip', period_end: '2026-10-05' })
+    const a = await todos.add({ title: '면허 신청', goal: 'trip', due: '2026-09-18' })
+    const b = await todos.add({ title: '환전', goal: 'trip', due: '2026-09-18' })
+    await todos.complete(a.id)
+    const detail = await goals.get('trip')
+    expect(detail.open_todos.map((t) => t.title)).toEqual(['환전'])
+    expect(detail.done_todos.map((t) => t.title)).toEqual(['면허 신청'])
+    expect(detail.todos).toEqual({ open: 1, done: 1 })
+    await todos.complete(a.id, true)
+    expect((await goals.get('trip')).done_todos).toEqual([])
+    expect(b.status).toBe('open')
+  })
+})

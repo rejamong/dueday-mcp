@@ -65,7 +65,7 @@ export function registerGoalTools(server: McpServer, goals: GoalService, ok: Ok,
       title: '목표 상세 진행',
       description: '목표 하나의 지표별 진행, 최근 체크인 30건, 열린 할 일 목록을 돌려준다. 주간 목표 리뷰나 "독서 목표 어때?" 같은 질문에 쓴다.',
       inputSchema: z.object({ goal: GOAL_REF }),
-      outputSchema: envelope(goalOutput.extend({ checkins: z.array(z.record(z.string(), z.unknown())), open_todos: z.array(z.record(z.string(), z.unknown())) })),
+      outputSchema: envelope(goalOutput.extend({ checkins: z.array(z.record(z.string(), z.unknown())), open_todos: z.array(z.record(z.string(), z.unknown())), done_todos: z.array(z.record(z.string(), z.unknown())) })),
     },
     ({ goal }) => run(async () => ok(await goals.get(goal), goals.today())),
   )

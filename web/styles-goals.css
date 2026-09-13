@@ -161,3 +161,6 @@
   .goal-hero-title { font-size: 28px; }
   .goal-hero-add { position: static; margin-top: var(--sp-3); }
 }
+
+.goal-detail-done { margin-top: var(--sp-3); }
+.goal-detail-todos-done .todo-row { opacity: 0.75; }

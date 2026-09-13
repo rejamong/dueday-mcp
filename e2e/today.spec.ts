@@ -312,6 +312,18 @@ test('goals page: life goal, annual goal metric tracking, check-in, and todo lin
     await goalCard.locator('.goal-detail-btn').click()
     await expect(goalCard.locator('.goal-detail-todos').getByText(LINKED_TODO_TITLE)).toBeVisible()
   })
+
+  await test.step('completing from the panel moves the todo to 완료 and the circle reopens it', async () => {
+    const goalCard = page.locator('.goal-card', { hasText: '독서' }).first()
+    const openRow = goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })
+    await openRow.locator('.row-check').click()
+    const doneRow = goalCard.locator('.goal-detail-todos-done .todo-row', { hasText: LINKED_TODO_TITLE })
+    await expect(doneRow).toBeVisible()
+    await expect(goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })).toHaveCount(0)
+    await doneRow.locator('.row-check').click()
+    await expect(goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })).toBeVisible()
+    await expect(goalCard.locator('.goal-detail-todos-done')).toHaveCount(0)
+  })
 })
 
 test('AI 제안 panel: absent with no suggestions, goals page loads cleanly', async ({ page }) => {
