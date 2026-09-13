@@ -34,9 +34,12 @@ export function heroSummaryLine(annualGoals, today) {
   const year = yearOf(today)
   if (year === null || annualGoals.length === 0) return null
   const avgPercent = Math.round(annualGoals.reduce((sum, g) => sum + g.percent, 0) / annualGoals.length)
-  const elapsed = annualGoals.map((g) => g.time_percent).filter((v) => v !== null)
-  const avgElapsed = elapsed.length > 0 ? Math.round(elapsed.reduce((sum, v) => sum + v, 0) / elapsed.length) : null
-  const elapsedPart = avgElapsed === null ? '' : ` · 연간 기간 ${avgElapsed}% 경과`
+  // Elapsed share of the calendar year itself (not an average of goal periods, which may be shorter).
+  const start = Date.UTC(year, 0, 1)
+  const end = Date.UTC(year + 1, 0, 1)
+  const now = Date.parse(`${today}T00:00:00Z`)
+  const yearElapsed = Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)))
+  const elapsedPart = ` · 연간 기간 ${yearElapsed}% 경과`
   return `${year}년 목표 ${annualGoals.length}개 · 평균 달성 ${avgPercent}%${elapsedPart}`
 }
 
