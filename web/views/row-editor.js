@@ -11,6 +11,21 @@ function parseTags(raw) {
     .filter((t) => t.length > 0)
 }
 
+/** 목표 select options: 일상 + every non-life goal, defaulting to the todo's current goal. */
+function goalSelectHtml(todo, goals) {
+  const options = goals
+    .filter((g) => g.kind !== 'life')
+    .map((g) => `<option value="${escapeHtml(g.tag)}" ${g.tag === todo.goal_tag ? 'selected' : ''}>${escapeHtml(g.title)}</option>`)
+    .join('')
+  return `
+    <label class="visually-hidden" for="editor-goal">목표</label>
+    <select id="editor-goal" class="editor-goal">
+      <option value="" ${todo.goal_tag ? '' : 'selected'}>일상</option>
+      ${options}
+    </select>
+  `
+}
+
 /** Diffs the editor fields against the original todo, returning only the fields that changed. */
 function buildPatch(todo, fields) {
   const patch = {}
@@ -19,6 +34,7 @@ function buildPatch(todo, fields) {
   if (fields.leadDays !== todo.lead_days) patch.lead_days = fields.leadDays
   const currentTags = (todo.tags || []).join(', ')
   if (fields.tagsRaw !== currentTags) patch.tags = parseTags(fields.tagsRaw)
+  if (fields.goal !== (todo.goal_tag || '')) patch.goal = fields.goal === '' ? null : fields.goal
   return patch
 }
 
@@ -28,11 +44,12 @@ function readFields(todo, refs) {
     due: refs.due.value,
     leadDays: refs.lead.value === '' ? todo.lead_days : Number(refs.lead.value),
     tagsRaw: refs.tags.value,
+    goal: refs.goal ? refs.goal.value : todo.goal_tag || '',
   }
 }
 
 /** Inline editor that replaces a row's content while `state.editingId === todo.id`. */
-export function render(todo, actions) {
+export function render(todo, state, actions) {
   const dueValue = toDateOnly(todo.due_at)
   const tagsValue = (todo.tags || []).join(', ')
 
@@ -51,6 +68,7 @@ export function render(todo, actions) {
           </label>
           <label class="visually-hidden" for="editor-tags">태그</label>
           <input id="editor-tags" class="editor-tags" type="text" aria-label="태그" placeholder="태그 (쉼표로 구분)" value="${escapeHtml(tagsValue)}" />
+          ${goalSelectHtml(todo, state.goals)}
           <span class="editor-spacer"></span>
           <span class="editor-hint">ENTER 저장 · ESC 닫기</span>
           <button type="button" class="btn btn-ghost editor-close">닫기</button>
@@ -65,8 +83,9 @@ export function render(todo, actions) {
     due: el.querySelector('.editor-due'),
     lead: el.querySelector('.editor-lead'),
     tags: el.querySelector('.editor-tags'),
+    goal: el.querySelector('.editor-goal'),
   }
-  const controls = [refs.title, refs.due, refs.lead, refs.tags, el.querySelector('.editor-close'), el.querySelector('.editor-save')]
+  const controls = [refs.title, refs.due, refs.lead, refs.tags, refs.goal, el.querySelector('.editor-close'), el.querySelector('.editor-save')]
 
   function setDisabled(disabled) {
     controls.forEach((node) => (node.disabled = disabled))

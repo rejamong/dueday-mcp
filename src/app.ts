@@ -32,7 +32,7 @@ export interface AppDeps {
 }
 
 const MAX_BODY_BYTES = 64 * 1024
-const DEFAULT_RATE_LIMIT = 60
+const DEFAULT_RATE_LIMIT = 240
 const SESSION_TTL_SEC = 30 * 24 * 60 * 60
 const DEFAULT_WEB_ROOT = './web'
 

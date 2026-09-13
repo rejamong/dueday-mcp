@@ -35,7 +35,7 @@ const BEHIND_MARGIN = 15
 const clamp = (n: number): number => Math.max(0, Math.min(100, Math.round(n)))
 
 function currentOf(metric: MetricShape, sorted: readonly CheckinPoint[]): number | null {
-  if (sorted.length === 0) return null
+  // A count with no check-ins is genuinely zero; a measurement with none is unknown.
   if (metric.kind === 'count') return sorted.reduce((sum, c) => sum + c.value, 0)
   return sorted[sorted.length - 1]?.value ?? null
 }

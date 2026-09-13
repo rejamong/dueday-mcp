@@ -2,8 +2,14 @@
 
 import { loadView } from './utils.js'
 
+/** Maps the current URL hash to a route name. Only '#/goals' is special; anything else is 'today'. */
+export function routeFromHash() {
+  return location.hash === '#/goals' ? 'goals' : 'today'
+}
+
 function initialState() {
   return {
+    route: routeFromHash(),
     today: null,
     upcoming: null,
     todos: [],
@@ -19,6 +25,15 @@ function initialState() {
     focusMenuId: null,
     view: loadView(),
     calendar: { month: null, todos: [], selectedDay: null, loading: false },
+    goals: [],
+    goalsLoading: false,
+    goalDetails: {},
+    expandedGoalIds: [],
+    checkinOpenGoalId: null,
+    addGoalFormOpen: false,
+    addGoalPresetKind: null,
+    unlinkedTodos: null,
+    pendingGoal: null,
   }
 }
 

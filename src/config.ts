@@ -4,7 +4,7 @@ const NODE_ENVS = ['development', 'test', 'production'] as const
 type NodeEnv = (typeof NODE_ENVS)[number]
 
 const MIN_API_TOKEN_LENGTH = 16
-const DEFAULT_RATE_LIMIT_PER_MINUTE = 60
+const DEFAULT_RATE_LIMIT_PER_MINUTE = 240
 const MIN_OWNER_PASSWORD_LENGTH = 12
 const MIN_WEB_PASSWORD_LENGTH = 4
 

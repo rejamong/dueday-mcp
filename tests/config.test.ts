@@ -13,7 +13,7 @@ describe('loadConfig', () => {
     expect(config.port).toBe(3000)
     expect(config.nodeEnv).toBe('development')
     expect(config.dbPath).toBe('./data/todo.db')
-    expect(config.rateLimitPerMinute).toBe(60)
+    expect(config.rateLimitPerMinute).toBe(240)
     expect(config.brainSyncEnabled).toBe(false)
   })
 

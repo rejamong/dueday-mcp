@@ -22,9 +22,21 @@ function badgeText(today, todo, variant) {
   return ddayLabel(today, todo.due_at)
 }
 
-function tagChips(tags) {
-  if (!tags || tags.length === 0) return ''
-  return `<div class="row-tags">${tags.map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('')}</div>`
+/** Small `◎ tag` chip shown after the tag chips when a todo is linked to a goal. */
+function goalChipHtml(goalTag) {
+  if (!goalTag) return ''
+  return `<button type="button" class="goal-chip" data-goal-tag="${escapeHtml(goalTag)}">◎ ${escapeHtml(goalTag)}</button>`
+}
+
+function tagChips(tags, goalTag) {
+  const chips = (tags || []).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('') + goalChipHtml(goalTag)
+  if (!chips) return ''
+  return `<div class="row-tags">${chips}</div>`
+}
+
+function wireGoalChip(el, actions) {
+  const chip = el.querySelector('.goal-chip')
+  if (chip) chip.addEventListener('click', () => actions.navigate('goals'))
 }
 
 function completeControlsHtml(isDone) {
@@ -89,7 +101,7 @@ function renderNormalRow(todo, state, actions, rowKey) {
       ${isCancelled ? '' : completeControlsHtml(isDone)}
       <div class="row-text">
         <div class="row-title ${isDone ? 'is-done' : ''} ${isCancelled ? 'is-cancelled' : ''}">${escapeHtml(todo.title)}</div>
-        ${tagChips(todo.tags)}
+        ${tagChips(todo.tags, todo.goal_tag)}
       </div>
       ${prep ? `<span class="row-prep">${escapeHtml(prep)}</span>` : '<span class="row-prep row-prep-empty"></span>'}
       <span class="due-badge badge-${variant}">${escapeHtml(badgeText(state.today, todo, variant))}</span>
@@ -102,6 +114,7 @@ function renderNormalRow(todo, state, actions, rowKey) {
 
   if (!isCancelled) wireCompleteToggle(el, todo, actions)
   wireRowMenu(el, todo, state, actions, rowKey)
+  wireGoalChip(el, actions)
 
   return el
 }
@@ -115,6 +128,6 @@ export function render(todo, state, actions, sectionKey = 'all') {
   // The same todo can appear in several sections; UI modes are keyed per section row, not per todo.
   const rowKey = `${sectionKey}:${todo.id}`
   if (state.confirmDeleteId === rowKey) return renderDeleteConfirm(todo, actions)
-  if (state.editingId === rowKey) return renderEditor(todo, actions)
+  if (state.editingId === rowKey) return renderEditor(todo, state, actions)
   return renderNormalRow(todo, state, actions, rowKey)
 }

@@ -238,3 +238,78 @@ test('calendar view: toggle, chips, month nav, day selection, and persistence', 
     await expect(page.locator('.calendar-cells')).toBeVisible()
   })
 })
+
+test('goals page: life goal, annual goal metric tracking, check-in, and todo linking', async ({ page }) => {
+  const LIFE_TITLE = '나와 가족의 자유와 행복'
+  const ANNUAL_TITLE = '15권 이상 독서'
+  const GOAL_TAG = 'reading'
+  const LINKED_TODO_TITLE = 'E2E 목표 연결 할 일'
+
+  let goalCard: ReturnType<typeof page.locator>
+
+  await test.step('log in and switch to the 목표 tab', async () => {
+    await page.goto('/')
+    await page.fill('#login-password', OWNER_PASSWORD)
+    await page.click('button:has-text("로그인")')
+    await expect(page.locator('.topbar')).toBeVisible()
+    await page.click('.nav-tabs button:has-text("목표")')
+    await expect(page.locator('.goals-page')).toBeVisible()
+  })
+
+  await test.step('create the life goal from the hero prompt', async () => {
+    await page.click('.goal-hero-empty')
+    await page.fill('#ga-title', LIFE_TITLE)
+    await page.click('.ga-submit')
+    await expect(page.locator('#toast')).toContainText('목표 추가됨')
+    await expect(page.locator('.goal-hero-title')).toHaveText(LIFE_TITLE)
+  })
+
+  await test.step('create the annual reading goal with a count/gte metric', async () => {
+    await page.click('.goal-hero-add')
+    await page.fill('#ga-title', ANNUAL_TITLE)
+    await page.fill('#ga-tag', GOAL_TAG)
+    await page.click('.ga-add-metric')
+    const row = page.locator('.metric-row').first()
+    await row.locator('.mr-name').fill('읽은 책')
+    await row.locator('.mr-target').fill('15')
+    await row.locator('.mr-unit').fill('권')
+    await page.click('.ga-submit')
+    await expect(page.locator('#toast')).toContainText('목표 추가됨')
+
+    goalCard = page.locator(`.goal-card[data-tag="${GOAL_TAG}"]`)
+    await expect(goalCard).toBeVisible()
+  })
+
+  await test.step('shows 뒤처짐 (0% vs elapsed time) and 0 / 15 권 · 0%', async () => {
+    await expect(goalCard.locator('.status-pill')).toHaveText('뒤처짐')
+    await expect(goalCard.locator('.goal-metric-value')).toContainText('0 / 15 권 · 0%')
+  })
+
+  await test.step('체크인 value 3 updates the metric to 3 / 15 권 · 20%', async () => {
+    await goalCard.locator('.goal-checkin-btn').click()
+    await goalCard.locator('.ci-value').fill('3')
+    await goalCard.locator('.ci-submit').click()
+    await expect(page.locator('#toast')).toContainText('기록됨')
+    await expect(goalCard.locator('.goal-metric-value')).toContainText('3 / 15 권 · 20%')
+  })
+
+  await test.step('quick-add a todo linked to 목표: reading from 오늘, shows the ◎ chip', async () => {
+    await page.click('.nav-tabs button:has-text("오늘")')
+    await page.fill('#qa-title', LINKED_TODO_TITLE)
+    await page.selectOption('#qa-goal', GOAL_TAG)
+    await page.click('.qa-submit')
+    await expect(page.locator('#toast')).toContainText('추가됨')
+
+    const allSection = page.locator('.section').filter({ hasText: '전체 목록' })
+    const row = allSection.locator('.todo-row').filter({ hasText: LINKED_TODO_TITLE })
+    await expect(row.locator('.goal-chip')).toContainText(GOAL_TAG)
+  })
+
+  await test.step('back on 목표, 자세히 shows the linked todo and the footer counts it', async () => {
+    await page.click('.nav-tabs button:has-text("목표")')
+    await expect(goalCard.locator('.goal-footer-text')).toContainText('할 일 1 열림')
+
+    await goalCard.locator('.goal-detail-btn').click()
+    await expect(goalCard.locator('.goal-detail-todos').getByText(LINKED_TODO_TITLE)).toBeVisible()
+  })
+})

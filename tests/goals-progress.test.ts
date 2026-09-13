@@ -12,6 +12,7 @@ describe('metricProgress', () => {
     expect(p.percent).toBe(40)
     expect(p.on_track).toBe(false)
     expect(metricProgress(m, [at('2026-01-01', 20)], today).percent).toBe(100)
+    expect(metricProgress(m, [], today)).toMatchObject({ current_value: 0, percent: 0, remaining: 15 })
   })
 
   it('value / gte uses the latest measurement, relative to the baseline when given', () => {

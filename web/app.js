@@ -1,36 +1,42 @@
 import { api, ApiError } from './api.js'
-import { getState, subscribe, set, setFilter } from './state.js'
+import { getState, subscribe, set, setFilter, routeFromHash } from './state.js'
 import { todayFromMeta, monthGrid, addDays, addMonths, defaultSelectedDay } from './dates.js'
 import { showToast, saveView } from './utils.js'
 import { fetchTodosInRange } from './calendar-data.js'
 import { render as renderLogin } from './views/login.js'
 import { render as renderTopbar } from './views/topbar.js'
+import { render as renderNavTabs } from './views/nav-tabs.js'
 import { render as renderQuickAdd } from './views/quick-add.js'
 import { render as renderStats } from './views/stats.js'
 import { render as renderSections } from './views/section.js'
+import { render as renderGoalsPage } from './views/goals/goals-page.js'
+import { goalActions, ensureGoalsPageLoaded } from './goals-actions.js'
 
 const CALENDAR_TRAILING_DAYS = 60 // matches lead_days' max, so every prep_start inside the grid is fetched
 
 const root = document.getElementById('app')
 
-/** Loads upcoming/todos/tags in parallel and stores the result. */
+/** Loads upcoming/todos/tags/goals in parallel and stores the result. */
 async function loadData() {
   set({ loading: true, error: null })
   try {
-    const [upcomingRes, todosRes, tagsRes] = await Promise.all([
+    const [upcomingRes, todosRes, tagsRes, goalsRes] = await Promise.all([
       api('/api/upcoming?days=7'),
       api('/api/todos?status=all&limit=100'),
       api('/api/tags'),
+      api('/api/goals?status=active'),
     ])
     set({
       today: todayFromMeta(upcomingRes.meta),
       upcoming: upcomingRes.data,
       todos: todosRes.data,
       tags: tagsRes.data,
+      goals: goalsRes.data,
       loading: false,
       authenticated: true,
     })
     ensureCalendarLoaded()
+    ensureGoalsPageLoaded()
   } catch (err) {
     set({ loading: false, error: err.message })
     if (!(err instanceof ApiError && err.status === 401)) {
@@ -44,6 +50,7 @@ async function reloadAfterMutation() {
   await loadData()
   const { calendar } = getState()
   if (calendar.month) await loadCalendarMonth(calendar.month)
+  ensureGoalsPageLoaded()
 }
 
 function calendarMonthFromToday() {
@@ -108,6 +115,13 @@ const actions = {
       editingId: null,
       confirmDeleteId: null,
       focusMenuId: null,
+      goals: [],
+      goalDetails: {},
+      expandedGoalIds: [],
+      checkinOpenGoalId: null,
+      addGoalFormOpen: false,
+      unlinkedTodos: null,
+      pendingGoal: null,
     })
   },
 
@@ -138,6 +152,8 @@ const actions = {
     set({ view })
     ensureCalendarLoaded()
   },
+
+  ...goalActions,
 
   calendarPrevMonth() {
     setCalendarMonth(addMonths(getState().calendar.month, -1))
@@ -245,6 +261,22 @@ function handleGlobalEscape(event) {
   else if (confirmDeleteId) actions.cancelDeleteConfirm()
 }
 
+function renderTodayContent(state) {
+  const content = document.createElement('div')
+  content.className = 'container main-content'
+  content.appendChild(renderQuickAdd(state, actions))
+  content.appendChild(renderStats(state, actions))
+  content.appendChild(renderSections(state, actions))
+  return content
+}
+
+function renderGoalsContent(state) {
+  const content = document.createElement('div')
+  content.className = 'container main-content'
+  content.appendChild(renderGoalsPage(state, actions))
+  return content
+}
+
 function renderApp(state) {
   root.innerHTML = ''
   root.classList.toggle('is-loading', state.loading)
@@ -255,13 +287,8 @@ function renderApp(state) {
   }
 
   root.appendChild(renderTopbar(state, actions))
-
-  const content = document.createElement('div')
-  content.className = 'container main-content'
-  content.appendChild(renderQuickAdd(state, actions))
-  content.appendChild(renderStats(state, actions))
-  content.appendChild(renderSections(state, actions))
-  root.appendChild(content)
+  root.appendChild(renderNavTabs(state))
+  root.appendChild(state.route === 'goals' ? renderGoalsContent(state) : renderTodayContent(state))
 }
 
 /** Checks the session cookie and, when present, loads the initial dataset. */
@@ -279,8 +306,15 @@ window.addEventListener('dueday:unauthorized', () => {
   set({ authenticated: false, loginError: null })
 })
 
+/** Applies a hash change to state.route, loading that tab's data the first time it's shown. */
+function handleHashChange() {
+  set({ route: routeFromHash() })
+  ensureGoalsPageLoaded()
+}
+
 window.addEventListener('pointerdown', handleOutsidePointerDown, true)
 window.addEventListener('keydown', handleGlobalEscape)
+window.addEventListener('hashchange', handleHashChange)
 
 subscribe(renderApp)
 renderApp(getState())

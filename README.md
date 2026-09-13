@@ -58,7 +58,7 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `PORT` | 3000 | 컨테이너 내부 포트 |
 | `HOST_PORT` | 3080 | compose가 호스트에 여는 포트 |
 | `DB_PATH` | `./data/todo.db` | SQLite 파일 (WAL) |
-| `RATE_LIMIT_PER_MIN` | 60 | 클라이언트(IP 또는 토큰)별 분당 요청 수 |
+| `RATE_LIMIT_PER_MIN` | 240 | 클라이언트(IP 또는 토큰)별 분당 요청 수 (웹 UI는 한 번 열 때 요청 5~6개) |
 | `PUBLIC_URL` | 비움 | 터널이 노출하는 공개 origin. `OWNER_PASSWORD`와 함께 설정하면 OAuth 활성 |
 | `OWNER_PASSWORD` | 비움 | `/authorize` 승인 페이지 비밀번호, 12자 이상. `WEB_PASSWORD`가 없으면 웹 로그인에도 사용 |
 | `WEB_PASSWORD` | 비움 | 웹 UI 로그인 전용 비밀번호(4자 이상, PIN 가능). 실패 5회/15분 잠금, 전체 30회/15분 잠금 |
