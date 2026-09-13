@@ -112,7 +112,7 @@ export const goalActions = {
 
   /** Sends the user to the today screen with this goal preselected in the quick-add chip. */
   startAddTodoForGoal(goal) {
-    set({ pendingGoal: { tag: goal.tag, title: goal.title } })
+    set({ pendingGoal: { tag: goal.tag, title: goal.title }, quickAddOpen: true })
     location.hash = '#/'
   },
 

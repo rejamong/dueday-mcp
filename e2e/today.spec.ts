@@ -29,8 +29,8 @@ test('login, quick-add, complete, logout', async ({ page }) => {
     await page.fill('#login-password', OWNER_PASSWORD)
     await page.click('button:has-text("로그인")')
     await expect(page.locator('.topbar')).toBeVisible()
+    await expect(page.locator('.today-line')).toHaveText(/^TODAY \d{4}-\d{2}-\d{2} /) // retries until today has loaded
     const line = await page.locator('.today-line').textContent()
-    expect(line ?? '').toMatch(/^TODAY \d{4}-\d{2}-\d{2} /)
     today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
     expect(today).not.toBe('')
   })
@@ -414,4 +414,24 @@ test('calendar quick-add: + on a day cell adds a todo inline without changing mo
     const deleteRes = await page.request.delete(`/api/todos/${todo.id}`)
     expect(deleteRes.ok()).toBe(true)
   })
+})
+
+test('mobile: quick-add collapses behind a button and stat cards become one line', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const login = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })
+  expect(login.ok()).toBeTruthy()
+  await page.goto('/')
+  await expect(page.locator('.quick-add')).toBeHidden()
+  await expect(page.locator('.stat-strip')).toBeHidden()
+  await expect(page.locator('.stat-line')).toBeVisible()
+  await page.click('.quick-add-toggle')
+  await expect(page.locator('.quick-add')).toBeVisible()
+  const TITLE = `모바일 등록 ${Date.now()}`
+  await page.fill('#qa-title', TITLE)
+  await page.press('#qa-title', 'Enter')
+  await expect(page.locator('.todo-row', { hasText: TITLE })).toBeVisible()
+  await expect(page.locator('.quick-add')).toBeHidden()
+  const res = await page.request.get(`/api/todos?q=${encodeURIComponent(TITLE)}`)
+  const { data } = await res.json()
+  for (const t of data) await page.request.delete(`/api/todos/${t.id}`)
 })

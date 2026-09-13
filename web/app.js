@@ -127,7 +127,13 @@ const actions = {
 
   async addTodo(payload) {
     await api('/api/todos', { method: 'POST', body: payload })
+    set({ quickAddOpen: false })
     await reloadAfterMutation()
+  },
+
+  /** Mobile: shows/hides the quick-add form (desktop always shows it via CSS). */
+  toggleQuickAdd() {
+    set({ quickAddOpen: !getState().quickAddOpen })
   },
 
   async toggleComplete(todo) {
@@ -270,10 +276,24 @@ function handleGlobalEscape(event) {
   else if (confirmDeleteId) actions.cancelDeleteConfirm()
 }
 
+/** Mobile-only toggle above the quick-add form; hidden on wider screens by CSS. */
+function renderQuickAddToggle(state) {
+  const btn = document.createElement('button')
+  btn.type = 'button'
+  btn.className = 'btn quick-add-toggle'
+  btn.setAttribute('aria-expanded', String(state.quickAddOpen))
+  btn.textContent = state.quickAddOpen ? '닫기' : '+ 할 일 추가'
+  btn.addEventListener('click', () => actions.toggleQuickAdd())
+  return btn
+}
+
 function renderTodayContent(state) {
   const content = document.createElement('div')
   content.className = 'container main-content'
-  content.appendChild(renderQuickAdd(state, actions))
+  content.appendChild(renderQuickAddToggle(state))
+  const quickAdd = renderQuickAdd(state, actions)
+  quickAdd.classList.toggle('is-open', state.quickAddOpen)
+  content.appendChild(quickAdd)
   content.appendChild(renderStats(state, actions))
   content.appendChild(renderSections(state, actions))
   return content

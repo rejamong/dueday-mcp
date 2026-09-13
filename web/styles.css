@@ -125,6 +125,12 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 
 /* Stat strip */
 .stat-strip { display: flex; gap: var(--sp-4); }
+.stat-line { display: none; margin: 0; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.stat-line b { font-weight: 700; color: var(--ink); }
+.stat-line-overdue b { color: var(--danger); }
+.stat-line-start_now b { color: var(--accent); }
+.stat-line-sep { margin: 0 8px; color: var(--soft); }
+.quick-add-toggle { display: none; }
 .stat-card { flex: 1; padding: 16px 20px; border-radius: var(--radius-md); border: 1px solid var(--rule); background: var(--surface); }
 .stat-eyebrow { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; color: var(--soft); }
 .stat-number { display: block; font-family: var(--font-serif); font-size: 40px; line-height: 1.2; }
@@ -402,6 +408,13 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 
 @media (max-width: 640px) {
   .cal-cell-add { opacity: .55; }
+  /* Phones: keep the list near the top — the add form collapses behind a button and the stat cards become one line. */
+  .quick-add-toggle { display: block; width: 100%; border: 1px dashed var(--rule); background: var(--surface); color: var(--muted); }
+  .quick-add-toggle[aria-expanded="true"] { border-style: solid; }
+  .quick-add { display: none; }
+  .quick-add.is-open { display: flex; }
+  .stat-strip { display: none; }
+  .stat-line { display: block; }
 }
 
 .calendar-block.is-loading { opacity: .6; pointer-events: none; }

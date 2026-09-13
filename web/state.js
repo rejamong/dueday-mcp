@@ -33,6 +33,8 @@ function initialState() {
     addGoalFormOpen: false,
     addGoalPresetKind: null,
     goalStatusFilter: { annual: null, short: null },
+    /** Mobile only: the quick-add form is collapsed behind a button until opened. */
+    quickAddOpen: false,
     unlinkedTodos: null,
     pendingGoal: null,
     suggestions: [],
