@@ -52,7 +52,7 @@ test('login, quick-add, complete, logout', async ({ page }) => {
   await test.step('checking it off moves it out of the open lists', async () => {
     const laterSection = page.locator('.section').filter({ hasText: '7일 내 예정' })
     const row = laterSection.locator('.todo-row').filter({ hasText: TITLE })
-    await row.locator('.row-check').click()
+    await row.locator('.row-toggle').click()
     await expect(row).toHaveCount(0)
 
     const allSectionOpen = page.locator('.section').filter({ hasText: '전체 목록' })
@@ -316,11 +316,11 @@ test('goals page: life goal, annual goal metric tracking, check-in, and todo lin
   await test.step('completing from the panel moves the todo to 완료 and the circle reopens it', async () => {
     const goalCard = page.locator('.goal-card', { hasText: '독서' }).first()
     const openRow = goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })
-    await openRow.locator('.row-check').click()
+    await openRow.locator('.row-toggle').click()
     const doneRow = goalCard.locator('.goal-detail-todos-done .todo-row', { hasText: LINKED_TODO_TITLE })
     await expect(doneRow).toBeVisible()
     await expect(goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })).toHaveCount(0)
-    await doneRow.locator('.row-check').click()
+    await doneRow.locator('.row-toggle').click()
     await expect(goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })).toBeVisible()
     await expect(goalCard.locator('.goal-detail-todos-done')).toHaveCount(0)
   })

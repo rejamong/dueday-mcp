@@ -58,17 +58,6 @@ function wireGoalChip(el, actions) {
   if (chip) chip.addEventListener('click', () => actions.navigate('goals'))
 }
 
-function completeControlsHtml(isDone) {
-  return `
-    <button
-      type="button"
-      class="row-check"
-      aria-pressed="${isDone}"
-      aria-label="${isDone ? '완료됨, 되돌리기' : '완료로 표시'}"
-    ></button>
-  `
-}
-
 function wireCompleteToggle(el, todo, actions) {
   const toggle = async () => {
     el.querySelectorAll('button').forEach((b) => (b.disabled = true))
@@ -78,7 +67,6 @@ function wireCompleteToggle(el, todo, actions) {
       el.querySelectorAll('button').forEach((b) => (b.disabled = false))
     }
   }
-  el.querySelector('.row-check').addEventListener('click', toggle)
   el.querySelector('.row-toggle').addEventListener('click', toggle)
 }
 
@@ -117,14 +105,13 @@ function renderNormalRow(todo, state, actions, rowKey) {
 
   const el = createElement(`
     <div class="todo-row" data-id="${escapeHtml(todo.id)}" data-row-key="${escapeHtml(rowKey)}">
-      ${isCancelled ? '' : completeControlsHtml(isDone)}
       <div class="row-text">
         <div class="row-title ${isDone ? 'is-done' : ''} ${isCancelled ? 'is-cancelled' : ''}">${escapeHtml(todo.title)}</div>
         ${tagChips(todo.tags, todo.goal_tag, todo.enrichment)}
       </div>
       ${prep ? `<span class="row-prep">${escapeHtml(prep)}</span>` : '<span class="row-prep row-prep-empty"></span>'}
       <span class="due-badge badge-${variant}">${escapeHtml(badgeText(state.today, todo, variant))}</span>
-      ${isCancelled ? '' : '<button type="button" class="btn btn-ghost row-toggle">' + (isDone ? '되돌리기' : '완료') + '</button>'}
+      ${isCancelled ? '' : '<button type="button" class="btn row-toggle' + (isDone ? ' row-toggle-done' : '') + '" aria-label="' + (isDone ? '미완료로 되돌리기' : '완료로 표시') + '">' + (isDone ? '↺ 되돌리기' : '✓ 완료') + '</button>'}
       <div class="row-menu-wrap">
         <button type="button" class="btn btn-ghost row-menu-btn" aria-label="더 보기" aria-haspopup="true" aria-expanded="${state.menuOpenId === rowKey}">⋯</button>
       </div>

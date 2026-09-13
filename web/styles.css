@@ -158,8 +158,9 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 /* Todo row */
 .todo-row { display: flex; align-items: center; gap: var(--sp-4); padding: 12px 16px; border-bottom: 1px solid var(--rule); }
 .todo-row:last-child { border-bottom: none; }
-.row-check { width: 20px; height: 20px; min-width: 20px; border-radius: 50%; border: 1px solid var(--soft); background: transparent; padding: 0; cursor: pointer; }
-.row-check[aria-pressed="true"] { background: var(--soft); border-color: var(--soft); }
+.row-toggle { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); padding: 6px 12px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.row-toggle:hover, .row-toggle:focus-visible { border-color: var(--ink); background: var(--paper); }
+.row-toggle-done { color: var(--muted); }
 .row-text { flex: 1; min-width: 0; }
 .row-title { font-size: 15px; font-weight: 500; }
 .row-title.is-done { color: var(--soft); text-decoration: line-through; }
