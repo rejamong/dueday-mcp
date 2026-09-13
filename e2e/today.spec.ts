@@ -314,7 +314,7 @@ test('goals page: life goal, annual goal metric tracking, check-in, and todo lin
   })
 
   await test.step('status chips filter the annual grid and toggle off', async () => {
-    const chip = page.locator('.goals-status-chip[data-status="done"]')
+    const chip = page.locator('.goals-section[data-kind="annual"] .goals-status-chip[data-status="done"]')
     await chip.click()
     await expect(chip).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.goals-section[data-kind="annual"] .goal-card, .goals-section[data-kind="annual"] .goals-section-empty').first()).toBeVisible()

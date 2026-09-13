@@ -70,10 +70,11 @@ export const goalActions = {
     set({ addGoalFormOpen: true, addGoalPresetKind: presetKind })
   },
 
-  /** Toggles the annual section's status filter (앞섬/순항/뒤처짐/달성); clicking the active one clears it. */
-  setGoalStatusFilter(status) {
+  /** Toggles one section's status filter (앞섬/순항/뒤처짐/달성), kept per kind; clicking the active one clears it. */
+  setGoalStatusFilter(kind, status) {
     const { goalStatusFilter } = getState()
-    set({ goalStatusFilter: goalStatusFilter === status ? null : status })
+    const next = goalStatusFilter[kind] === status ? null : status
+    set({ goalStatusFilter: { ...goalStatusFilter, [kind]: next } })
   },
 
   closeAddGoalForm() {

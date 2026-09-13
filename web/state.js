@@ -32,7 +32,7 @@ function initialState() {
     checkinOpenGoalId: null,
     addGoalFormOpen: false,
     addGoalPresetKind: null,
-    goalStatusFilter: null,
+    goalStatusFilter: { annual: null, short: null },
     unlinkedTodos: null,
     pendingGoal: null,
     suggestions: [],

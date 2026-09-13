@@ -15,15 +15,15 @@ const KIND_LABEL = { annual: '연간', short: '단기', long: '장기' }
  * preset to this kind, and either the card grid or a clickable empty state that does the same.
  */
 /** Clickable `앞섬 0 · 순항 3 · …` chips; the active one is highlighted and clicking it again clears the filter. */
-function statusFilterChips(goals, state, actions) {
+function statusFilterChips(kind, goals, state, actions) {
   const wrap = createElement('<div class="goals-section-count" role="group" aria-label="상태별 보기"></div>')
   wrap.appendChild(createElement(`<span class="goals-status-total">${goals.length}</span>`))
   for (const item of statusCountItems(goals)) {
-    const active = state.goalStatusFilter === item.key
+    const active = state.goalStatusFilter[kind] === item.key
     const chip = createElement(
       `<button type="button" class="goals-status-chip${active ? ' is-active' : ''}" data-status="${item.key}" aria-pressed="${active}">${item.label}</button>`,
     )
-    chip.addEventListener('click', () => actions.setGoalStatusFilter(item.key))
+    chip.addEventListener('click', () => actions.setGoalStatusFilter(kind, item.key))
     wrap.appendChild(chip)
   }
   return wrap
@@ -39,9 +39,9 @@ function renderKindSection({ kind, heading, withStatusFilter }, goals, state, ac
     </section>
   `)
   const header = section.querySelector('.goals-section-header')
-  if (withStatusFilter) header.insertBefore(statusFilterChips(goals, state, actions), header.querySelector('.goals-section-add'))
+  if (withStatusFilter) header.insertBefore(statusFilterChips(kind, goals, state, actions), header.querySelector('.goals-section-add'))
   section.querySelector('.goals-section-add').addEventListener('click', () => actions.openAddGoalForm(kind))
-  const visible = withStatusFilter ? filterGoalsByStatus(goals, state.goalStatusFilter) : goals
+  const visible = withStatusFilter ? filterGoalsByStatus(goals, state.goalStatusFilter[kind]) : goals
   if (goals.length > 0 && visible.length === 0) {
     section.appendChild(createElement('<div class="goals-section-empty">이 상태의 목표가 없음</div>'))
   } else if (goals.length === 0) {
@@ -65,7 +65,7 @@ export function renderAnnualSection(annualGoals, state, actions) {
 
 /** `단기 목표` section: goals with an explicit end date a few weeks or months out. */
 export function renderShortSection(shortGoals, state, actions) {
-  return renderKindSection({ kind: 'short', heading: '단기 목표', withStatusFilter: false }, shortGoals, state, actions)
+  return renderKindSection({ kind: 'short', heading: '단기 목표', withStatusFilter: true }, shortGoals, state, actions)
 }
 
 /** `장기 목표` section, with a clickable empty-state card when there are none yet. */
