@@ -41,11 +41,13 @@ export const addTodoSchema = z.object({
   title: titleSchema,
   due: dueSchema.optional(),
   tags: tagsSchema.default([]),
-  lead_days: leadDaysSchema.default(3),
+  lead_days: leadDaysSchema.optional(),
   note: noteSchema.optional(),
   brain_ref: brainRefSchema.optional(),
   goal: goalRefSchema.optional(),
 })
+
+export const DEFAULT_LEAD_DAYS = 3
 
 export const updateTodoFields = z.object({
   title: titleSchema.optional(),

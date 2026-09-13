@@ -29,6 +29,9 @@ const envSchema = z.object({
   OAUTH_REDIRECT_URIS: z.string().default('https://chatgpt.com/connector_platform_oauth_redirect'),
   /** `id|redirect1,redirect2[|secret];id2|...` — overrides OAUTH_CLIENT_ID/OAUTH_REDIRECT_URIS when set. */
   OAUTH_CLIENTS: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ENRICH_MODEL: z.string().default('claude-opus-5'),
+  ENRICH_DAILY_CAP: z.coerce.number().int().min(1).max(10000).default(200),
 })
 
 export interface Config {
@@ -45,6 +48,8 @@ export interface Config {
   readonly webPassword: string | undefined
   /** Present only when PUBLIC_URL and OWNER_PASSWORD are both set. */
   readonly oauth: OAuthConfig | undefined
+  /** Claude-backed classification of new todos; present only when ANTHROPIC_API_KEY is set. */
+  readonly enrich: { readonly apiKey: string; readonly model: string; readonly dailyCap: number } | undefined
 }
 
 export type GbrainConfig =
@@ -140,5 +145,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ownerPassword: data.OWNER_PASSWORD,
     webPassword: data.WEB_PASSWORD ?? data.OWNER_PASSWORD,
     oauth,
+    enrich: data.ANTHROPIC_API_KEY === undefined ? undefined : { apiKey: data.ANTHROPIC_API_KEY, model: data.ENRICH_MODEL, dailyCap: data.ENRICH_DAILY_CAP },
   })
 }

@@ -1,7 +1,7 @@
 import type { Db } from '../db/connection.js'
 import { prepStart } from './dates.js'
 import type { ListTodosInput } from './schemas.js'
-import type { Todo, TodoRow } from './types.js'
+import type { EnrichmentApplied, Todo, TodoRow } from './types.js'
 
 type RawRow = TodoRow & { tag_csv: string | null; goal_tag: string | null }
 
@@ -13,12 +13,24 @@ const SELECT_TODO = `
          (SELECT g.tag FROM goals g WHERE g.id = t.goal_id) AS goal_tag
     FROM todos t`
 
+/** Stored JSON should always be well-formed; a corrupt cell degrades that one field instead of the whole list. */
+export function parseJsonColumn<T>(raw: string | null, where: string): T | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch (error) {
+    console.error(`${where} JSON 파싱 실패:`, error)
+    return null
+  }
+}
+
 function toTodo(row: RawRow): Todo {
-  const { tag_csv, ...rest } = row
+  const { tag_csv, enrichment, ...rest } = row
   return {
     ...rest,
     prep_start: rest.due_at ? prepStart(rest.due_at, rest.lead_days) : null,
     tags: tag_csv ? tag_csv.split(',') : [],
+    enrichment: parseJsonColumn<EnrichmentApplied>(enrichment, 'todos.enrichment'),
   }
 }
 
@@ -27,8 +39,8 @@ export type GoalFilter = string | null | undefined
 
 export function insertTodo(db: Db, row: TodoRow): void {
   db.prepare(
-    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, source, created_at, updated_at, done_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, enrichment, enriched_at, source, created_at, updated_at, done_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     row.id,
     row.title,
@@ -38,6 +50,8 @@ export function insertTodo(db: Db, row: TodoRow): void {
     row.status,
     row.brain_ref,
     row.goal_id,
+    row.enrichment,
+    row.enriched_at,
     row.source,
     row.created_at,
     row.updated_at,
@@ -116,7 +130,7 @@ export function listOpenTodosForGoal(db: Db, goalId: string): Todo[] {
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>
 
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
-  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'updated_at', 'done_at',
+  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'enrichment', 'enriched_at', 'updated_at', 'done_at',
 ])
 
 export function updateTodo(db: Db, id: string, patch: TodoPatch): void {

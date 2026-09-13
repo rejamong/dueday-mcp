@@ -3,7 +3,7 @@
 개인 할 일을 **ChatGPT / Claude 챗에서 MCP로** 관리하는 작은 서버입니다. 마감일과 함께 *준비 시작일*(`due - lead_days`)을 계산해서, 일 단위 예약 작업이 "지금부터 준비해야 하는 일"을 알려줄 수 있게 설계했습니다.
 
 - **MCP 도구 13개**: 할 일 8개(`add_todo`, `list_todos`, `update_todo`, `complete_todo`, `cancel_todo`, `delete_todo`, `upcoming`, `list_tags`) + 목표 5개(`list_goals`, `add_goal`, `update_goal`, `log_progress`, `goal_progress`)
-- **장기 목표 관리**: 인생 목표 → 연간·장기 목표, 목표당 지표 여러 개(누적·측정값·달성 여부), 체크인 기록, 할 일을 목표에 연결(연결 없으면 일상)
+- **장기 목표 관리**: 인생 목표 → 연간·단기·장기 목표, 목표당 지표 여러 개(누적·측정값·달성 여부), 체크인 기록, 할 일을 목표에 연결(연결 없으면 일상)
 - **REST API**: 같은 서비스 계층을 `/api/*`로 노출 (웹 UI용)
 - **저장소**: SQLite (`node:sqlite` 내장, 네이티브 빌드 불필요)
 - **인증**: 내장 OAuth 2.1(PKCE, 사전 등록 공개 클라이언트, DCR 없음) 또는 정적 Bearer 토큰, 클라이언트별 요청 제한, 64KB 본문 제한
@@ -69,6 +69,9 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `GBRAIN_TOKEN` | 비움 | 정적 bearer 토큰 |
 | `GBRAIN_CLIENT_ID`, `GBRAIN_CLIENT_SECRET` | 비움 | OAuth client_credentials (권장). 토큰은 자동 발급·캐시 |
 | `TUNNEL_TOKEN` | 비움 | `tunnel` 프로필용 cloudflared 토큰 |
+| `ANTHROPIC_API_KEY` | 비움 | 설정하면 새 할 일을 Claude로 자동 분류(아래 참고). 비우면 기능 꺼짐 |
+| `ENRICH_MODEL` | `claude-opus-5` | 분류에 쓰는 모델 |
+| `ENRICH_DAILY_CAP` | 200 | 하루(Asia/Seoul) 최대 분류 호출 수. 넘으면 분류 없이 저장 |
 
 ## MCP 도구
 
@@ -84,7 +87,7 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `delete_todo` | 영구 삭제. 명시적 요청 시에만 |
 | `upcoming` | 알림용. `overdue`, `start_now`, `later`, `no_due` 그룹 + 한 줄 `summary` |
 | `list_tags` | 태그와 미완료 개수 |
-| `list_goals` | 인생·연간·장기 목표와 진행률(달성률, 기간 경과율, 상태) |
+| `list_goals` | 인생·연간·단기·장기 목표와 진행률(달성률, 기간 경과율, 상태) |
 | `add_goal` / `update_goal` | 목표와 지표 정의. 지표 kind: count(권·회 누적) / value(kg·명·BTC 측정값) / boolean |
 | `log_progress` | 체크인. "책 한 권 끝냈어" → reading +1, "몸무게 75.8" → weight 75.8 |
 | `goal_progress` | 목표 상세: 지표별 진행, 최근 체크인, 열린 할 일 |
@@ -151,6 +154,17 @@ pnpm typecheck && pnpm build
 ```
 
 구조: `src/todos`(도메인·저장소·날짜), `src/mcp`(MCP 어댑터), `src/api`(REST), `src/auth`(Bearer·요청 제한), `src/oauth`(OAuth 2.1 서버), `src/brain`(gbrain 동기화), `src/db`(마이그레이션).
+
+## 자동 분류 (선택, Claude API)
+
+`ANTHROPIC_API_KEY`를 설정하면 어느 경로(웹·REST·MCP)로 들어오든 새 할 일을 저장 직후 백그라운드에서 한 번 분류합니다.
+
+- **비어 있는 필드만 채웁니다.** 사용자가 준 `tags`, `lead_days`, `due`, `goal`은 절대 덮어쓰지 않습니다.
+- 태그(기존 태그 우선)·준비 기간(`lead_days`)·제목 속 날짜(`due`)는 바로 적용하고, 목표 연결은 확신이 높을 때만 적용합니다.
+- "매주 두 번 달리기"처럼 목표에 가까운 항목은 **목표 제안**으로만 남깁니다. `GET /api/suggestions`에서 보고 `POST /api/suggestions/:id/accept`(인생 목표 아래 목표 생성 + 할 일 연결) 또는 `/dismiss`로 처리합니다. 웹 UI의 목표 페이지에도 `AI 제안` 카드로 나옵니다.
+- 자동으로 채운 필드는 `todo.enrichment`에 기록되고 웹에서 `AI` 칩으로 표시됩니다. 사용자가 직접 수정하면 표시가 사라집니다.
+- 실패하면 할 일은 그대로 두고 `enrichment_log`에 남깁니다. 하루 호출 상한(`ENRICH_DAILY_CAP`)을 넘으면 `skipped`로 기록합니다.
+- 분류 호출은 직렬로 처리되며 요청당 약 1KB 입력(시스템 프롬프트는 캐시)이라 비용은 하루 수십 건 기준 매우 낮습니다.
 
 ## gbrain 동기화 (선택)
 

@@ -246,3 +246,47 @@ describe('/api/tags', () => {
     expect((await app.request('/api/goals/nope', authed({}))).status).toBe(404)
   })
 })
+
+describe('/api/suggestions', () => {
+  it('lists, accepts and dismisses classifier suggestions when an enricher is wired', async () => {
+    const { Enricher } = await import('../src/enrich/service.js')
+    const db = openDatabase(':memory:')
+    const clock = { now: () => fixedNow }
+    const goals = new GoalService({ db, clock })
+    await goals.add({ title: '자유와 행복', kind: 'life', tag: 'life' })
+    const suggestion = {
+      title: '매주 달리기', kind: 'short' as const, period_end: null, tag: 'running', why: '건강',
+      metric: { name: '달린 횟수', kind: 'count' as const, direction: 'gte' as const, target_value: 20, unit: '회' },
+    }
+    const client = { classify: async () => ({ tags: [], goal: null, goal_confidence: 'low' as const, lead_days: null, due: null, promote_to_goal: suggestion, reason: 'r' }) }
+    const enricher = new Enricher({ db, clock, client, model: 'test', dailyCap: 10 })
+    const service = new TodoService({ db, clock, goals, enricher })
+    enricher.attach(service, goals)
+    const app = createApp({ service, goals, enricher, apiToken: TOKEN })
+
+    await app.request('/api/todos', authed(json({ title: '달리기 시작' })))
+    await app.request('/api/todos', authed(json({ title: '러닝화 사기' })))
+    await enricher.flush()
+
+    const listed = await readJson<Array<{ id: string; todo_title: string }>>(await app.request('/api/suggestions', authed()))
+    expect(listed.data.map((s) => s.todo_title)).toEqual(['러닝화 사기', '달리기 시작']) // newest first
+
+    const accepted = await app.request(`/api/suggestions/${listed.data[0]?.id}/accept`, authed({ method: 'POST' }))
+    expect(accepted.status).toBe(201)
+    const goal = (await readJson<{ tag: string; kind: string; period_end: string | null }>(accepted)).data
+    expect(goal.tag).toBe('running')
+    expect(goal.kind).toBe('short')
+    expect(goal.period_end).toBe('2026-12-10')
+
+    const dismissed = await app.request(`/api/suggestions/${listed.data[1]?.id}/dismiss`, authed({ method: 'POST' }))
+    expect(dismissed.status).toBe(200)
+    expect((await readJson(await app.request('/api/suggestions', authed()))).data).toEqual([])
+    expect((await app.request(`/api/suggestions/${listed.data[1]?.id}/dismiss`, authed({ method: 'POST' }))).status).toBe(404)
+  })
+
+  it('returns an empty list and 404 on actions when the enricher is off', async () => {
+    const { app } = makeApp()
+    expect((await readJson(await app.request('/api/suggestions', authed()))).data).toEqual([])
+    expect((await app.request('/api/suggestions/x/accept', authed({ method: 'POST' }))).status).toBe(404)
+  })
+})

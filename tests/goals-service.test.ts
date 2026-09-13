@@ -126,3 +126,33 @@ describe('GoalService', () => {
     expect(g.id).toBe(updated.id)
   })
 })
+
+describe('GoalService short-term goals', () => {
+  let goals: GoalService
+  beforeEach(() => {
+    ;({ goals } = make())
+  })
+
+  it('requires an end date and defaults the start to today', async () => {
+    await expect(goals.add({ title: '이사 준비', kind: 'short', tag: 'moving' })).rejects.toThrow(ValidationError)
+    const g = await goals.add({ title: '이사 준비', kind: 'short', tag: 'moving', period_end: '2026-10-31' })
+    expect(g.kind).toBe('short')
+    expect(g.period_start).toBe('2026-09-13')
+    expect(g.period_end).toBe('2026-10-31')
+    expect(g.time_percent).not.toBeNull()
+  })
+
+  it('rejects an end date before the start date and removing the end date later', async () => {
+    await expect(goals.add({ title: 'x', kind: 'short', tag: 'x', period_start: '2026-10-01', period_end: '2026-09-01' })).rejects.toThrow(ValidationError)
+    await goals.add({ title: 'y', kind: 'short', tag: 'y', period_end: '2026-10-01' })
+    await expect(goals.update('y', { period_end: null })).rejects.toThrow(ValidationError)
+  })
+
+  it('lists kinds in life, annual, short, long order', async () => {
+    await goals.add({ title: 'l', kind: 'long', tag: 'l' })
+    await goals.add({ title: 's', kind: 'short', tag: 's', period_end: '2026-12-01' })
+    await goals.add({ title: 'a', kind: 'annual', tag: 'a', year: 2026 })
+    await goals.add({ title: 'life', kind: 'life', tag: 'life' })
+    expect((await goals.list({})).map((g) => g.kind)).toEqual(['life', 'annual', 'short', 'long'])
+  })
+})

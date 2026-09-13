@@ -64,6 +64,8 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     brain_ref: 'projects/sample-project',
     goal_id: null,
     goal_tag: null,
+    enrichment: null,
+    enriched_at: null,
     source: 'mcp',
     created_at: '2026-09-11T00:00:00+09:00',
     updated_at: '2026-09-11T00:00:00+09:00',

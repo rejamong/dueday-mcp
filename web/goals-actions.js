@@ -1,7 +1,7 @@
 // Data loading + user actions for the 목표 (goals) page. Split out of app.js to keep that
 // file focused on the today-screen flow; both modules share the same state.js singleton.
 
-import { api } from './api.js'
+import { api, listSuggestions, acceptSuggestion as acceptSuggestionApi, dismissSuggestion as dismissSuggestionApi } from './api.js'
 import { getState, set } from './state.js'
 import { showToast } from './utils.js'
 
@@ -15,9 +15,25 @@ export async function loadUnlinkedTodos() {
   }
 }
 
+/**
+ * Loads AI 목표 제안 목록. The server-side feature is optional (no classifier configured), so a
+ * 404 or network error is treated as "no suggestions" rather than surfaced as an error toast.
+ */
+export async function loadSuggestions() {
+  try {
+    const res = await listSuggestions()
+    set({ suggestions: res.data })
+  } catch {
+    set({ suggestions: [] })
+  }
+}
+
 /** On boot/login/tab-switch, loads the goals-page-only data once the 목표 tab is showing. */
 export function ensureGoalsPageLoaded() {
-  if (getState().route === 'goals') void loadUnlinkedTodos()
+  if (getState().route === 'goals') {
+    void loadUnlinkedTodos()
+    void loadSuggestions()
+  }
 }
 
 /** Replaces one goal in state.goals with a fresher copy (e.g. after a check-in), immutably. */
@@ -88,5 +104,22 @@ export const goalActions = {
 
   clearPendingGoal() {
     set({ pendingGoal: null })
+  },
+
+  /** Accepts an AI suggestion as a new goal, then refreshes both goals and the suggestion list. */
+  async acceptSuggestion(id) {
+    await acceptSuggestionApi(id)
+    const res = await api('/api/goals?status=active')
+    set({ goals: res.data })
+    await loadSuggestions()
+    showToast('목표로 등록했습니다')
+  },
+
+  /** Dismisses an AI suggestion, removing it from state immediately. */
+  async dismissSuggestion(id) {
+    await dismissSuggestionApi(id)
+    const { suggestions } = getState()
+    set({ suggestions: suggestions.filter((s) => s.id !== id) })
+    showToast('제안을 지웠습니다')
   },
 }

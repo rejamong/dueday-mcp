@@ -22,13 +22,21 @@ const nextUlid = monotonicFactory()
 const RECENT_CHECKINS = 30
 const systemClock: Clock = { now: () => new Date() }
 
-function periodOf(input: { kind: string; year?: number | undefined; period_start?: string | undefined; period_end?: string | undefined }): [string | null, string | null] {
+function periodOf(input: { kind: string; year?: number | undefined; period_start?: string | undefined; period_end?: string | undefined }, today: string): [string | null, string | null] {
+  if (input.kind === 'short') {
+    if (input.period_end === undefined) throw new ValidationError('단기 목표는 종료일(period_end)이 필요합니다')
+    return [input.period_start ?? today, input.period_end]
+  }
   if (input.period_start !== undefined || input.period_end !== undefined) return [input.period_start ?? null, input.period_end ?? null]
   if (input.kind === 'annual') {
-    const year = input.year ?? new Date().getFullYear()
+    const year = input.year ?? Number(today.slice(0, 4))
     return [`${year}-01-01`, `${year}-12-31`]
   }
   return [null, null]
+}
+
+function assertPeriodOrder(start: string | null, end: string | null): void {
+  if (start !== null && end !== null && end < start) throw new ValidationError('종료일이 시작일보다 앞설 수 없습니다')
 }
 
 function metricRow(goalId: string, m: MetricInput, index: number, id = nextUlid()): MetricRow {
@@ -63,7 +71,8 @@ export class GoalService {
     const data = parseOrThrow(addGoalSchema, input)
     if (findGoalByTag(this.db, data.tag)) throw new ValidationError(`이미 있는 태그입니다: ${data.tag}`)
     const parentId = data.parent === undefined ? null : this.resolve(data.parent).id
-    const [start, end] = periodOf(data)
+    const [start, end] = periodOf(data, this.today())
+    assertPeriodOrder(start, end)
     const now = toSeoulIso(this.clock.now())
     const id = nextUlid()
     this.transaction(() => {
@@ -83,6 +92,9 @@ export class GoalService {
       throw new ValidationError(`이미 있는 태그입니다: ${patch.tag}`)
     }
     const parentId = patch.parent === undefined ? undefined : patch.parent === null ? null : this.resolve(patch.parent).id
+    const nextEnd = patch.period_end === undefined ? goal.period_end : patch.period_end
+    if (goal.kind === 'short' && nextEnd === null) throw new ValidationError('단기 목표의 종료일은 지울 수 없습니다')
+    assertPeriodOrder(patch.period_start === undefined ? goal.period_start : patch.period_start, nextEnd)
     this.transaction(() => {
       updateGoal(this.db, goal.id, { ...goalPatch(patch), ...(parentId !== undefined ? { parent_id: parentId } : {}), updated_at: toSeoulIso(this.clock.now()) })
       if (patch.metrics !== undefined) this.replaceMetrics(goal.id, patch.metrics)

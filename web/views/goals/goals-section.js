@@ -27,19 +27,28 @@ export function renderAnnualSection(annualGoals, state, actions) {
   return section
 }
 
-/** `장기 목표` section, with a dashed empty-state card when there are none yet. */
-export function renderLongSection(longGoals, state, actions) {
+function renderKindSection(heading, emptyText, goals, state, actions) {
   const section = createElement(`
     <section class="goals-section">
       <div class="goals-section-header">
-        <h2 class="goals-section-heading">장기 목표</h2>
+        <h2 class="goals-section-heading">${heading}</h2>
       </div>
     </section>
   `)
-  if (longGoals.length === 0) {
-    section.appendChild(createElement('<div class="goal-card-empty-dashed">아직 장기 목표가 없음 — "+ 목표 추가"에서 종류를 장기로</div>'))
+  if (goals.length === 0) {
+    section.appendChild(createElement(`<div class="goal-card-empty-dashed">${emptyText}</div>`))
   } else {
-    section.appendChild(gridOf(longGoals, state, actions))
+    section.appendChild(gridOf(goals, state, actions))
   }
   return section
+}
+
+/** `단기 목표` section: goals with an explicit end date a few weeks or months out. */
+export function renderShortSection(shortGoals, state, actions) {
+  return renderKindSection('단기 목표', '아직 단기 목표가 없음 — "+ 목표 추가"에서 종류를 단기로', shortGoals, state, actions)
+}
+
+/** `장기 목표` section, with a dashed empty-state card when there are none yet. */
+export function renderLongSection(longGoals, state, actions) {
+  return renderKindSection('장기 목표', '아직 장기 목표가 없음 — "+ 목표 추가"에서 종류를 장기로', longGoals, state, actions)
 }

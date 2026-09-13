@@ -28,7 +28,7 @@ export function findGoalByTag(db: Db, tag: string): GoalRow | undefined {
 
 export function listGoals(db: Db, status: 'active' | 'all'): GoalRow[] {
   const where = status === 'active' ? "WHERE status = 'active'" : ''
-  return db.prepare(`SELECT * FROM goals ${where} ORDER BY CASE kind WHEN 'life' THEN 0 WHEN 'annual' THEN 1 ELSE 2 END, sort_order, created_at`).all() as unknown as GoalRow[]
+  return db.prepare(`SELECT * FROM goals ${where} ORDER BY CASE kind WHEN 'life' THEN 0 WHEN 'annual' THEN 1 WHEN 'short' THEN 2 ELSE 3 END, sort_order, created_at`).all() as unknown as GoalRow[]
 }
 
 export function insertMetric(db: Db, row: MetricRow): void {

@@ -4,6 +4,7 @@ import type { TodoService } from '../todos/service.js'
 import { fail, ok } from './envelope.js'
 import { createGoalRoutes } from './goal-routes.js'
 import type { GoalService } from '../goals/service.js'
+import type { Enricher } from '../enrich/service.js'
 
 function toNumber(value: string | undefined): number | undefined {
   return value === undefined ? undefined : Number(value)
@@ -26,9 +27,19 @@ async function readJsonBody(c: Context): Promise<unknown> {
   return text.trim().length === 0 ? {} : JSON.parse(text)
 }
 
-export function createApiRoutes(service: TodoService, goals?: GoalService): Hono {
+export function createApiRoutes(service: TodoService, goals?: GoalService, enricher?: Enricher): Hono {
   const app = new Hono()
   if (goals) app.route('/goals', createGoalRoutes(goals))
+  app.get('/suggestions', (c) => ok(c, enricher ? enricher.listSuggestions() : [], service.today()))
+  app.post('/suggestions/:id/accept', async (c) => {
+    if (!enricher) return fail(c, 404, '자동 분류가 설정되지 않았습니다')
+    return ok(c, await enricher.acceptSuggestion(c.req.param('id')), service.today(), undefined, 201)
+  })
+  app.post('/suggestions/:id/dismiss', async (c) => {
+    if (!enricher) return fail(c, 404, '자동 분류가 설정되지 않았습니다')
+    await enricher.dismissSuggestion(c.req.param('id'))
+    return ok(c, { id: c.req.param('id'), dismissed: true }, service.today())
+  })
 
   app.get('/todos', async (c) => {
     const page = await service.list(buildListQuery(c))

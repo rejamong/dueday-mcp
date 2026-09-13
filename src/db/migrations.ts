@@ -2,10 +2,12 @@ import type { DatabaseSync } from 'node:sqlite'
 
 interface Migration {
   readonly version: number
+  /** Table rebuilds need foreign-key enforcement off for the duration (SQLite cannot alter a CHECK in place). */
+  readonly rebuildsTables?: boolean
   readonly sql: string
 }
 
-const MIGRATIONS: readonly Migration[] = [
+export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
     sql: `
@@ -117,6 +119,51 @@ const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_todos_goal ON todos (goal_id);
     `,
   },
+  {
+    version: 4,
+    sql: `
+      ALTER TABLE todos ADD COLUMN enrichment TEXT;
+      ALTER TABLE todos ADD COLUMN enriched_at TEXT;
+      CREATE TABLE IF NOT EXISTS enrichment_log (
+        id TEXT PRIMARY KEY,
+        todo_id TEXT NOT NULL REFERENCES todos (id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('ok', 'failed', 'skipped')),
+        model TEXT NOT NULL,
+        applied TEXT,
+        suggestion TEXT,
+        reason TEXT,
+        error TEXT,
+        dismissed_at TEXT,
+        accepted_at TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_enrichment_log_todo ON enrichment_log (todo_id);
+      CREATE INDEX IF NOT EXISTS idx_enrichment_log_created ON enrichment_log (created_at);
+    `,
+  },
+  {
+    version: 5,
+    rebuildsTables: true,
+    sql: `
+      CREATE TABLE goals_v5 (
+        id TEXT PRIMARY KEY,
+        parent_id TEXT REFERENCES goals_v5 (id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        tag TEXT NOT NULL UNIQUE,
+        kind TEXT NOT NULL CHECK (kind IN ('life', 'annual', 'short', 'long')),
+        period_start TEXT,
+        period_end TEXT,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'done', 'paused', 'dropped')),
+        why TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO goals_v5 SELECT id, parent_id, title, tag, kind, period_start, period_end, status, why, sort_order, created_at, updated_at FROM goals;
+      DROP TABLE goals;
+      ALTER TABLE goals_v5 RENAME TO goals;
+    `,
+  },
 ]
 
 export function runMigrations(db: DatabaseSync): void {
@@ -127,14 +174,20 @@ export function runMigrations(db: DatabaseSync): void {
   const insert = db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)')
   for (const migration of MIGRATIONS) {
     if (applied.has(migration.version)) continue
+    if (migration.rebuildsTables) db.exec('PRAGMA foreign_keys = OFF')
     db.exec('BEGIN')
     try {
       db.exec(migration.sql)
+      if (migration.rebuildsTables && db.prepare('PRAGMA foreign_key_check').all().length > 0) {
+        throw new Error('테이블 재구성 후 외래 키 검사 실패')
+      }
       insert.run(migration.version, new Date().toISOString())
       db.exec('COMMIT')
     } catch (error) {
       db.exec('ROLLBACK')
       throw new Error(`마이그레이션 v${migration.version} 실패: ${(error as Error).message}`)
+    } finally {
+      if (migration.rebuildsTables) db.exec('PRAGMA foreign_keys = ON')
     }
   }
 }

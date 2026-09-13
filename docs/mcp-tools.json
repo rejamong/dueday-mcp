@@ -32,14 +32,16 @@
       "updated_at": "string (RFC3339)",
       "done_at": "string (RFC3339) | null",
       "goal_id": "string | null (연결된 목표 id, null = 일상)",
-      "goal_tag": "string | null"
+      "goal_tag": "string | null",
+      "enrichment": "{ tags?, goal?, lead_days?, due? } | null (Claude 자동 분류가 채운 필드; 직접 수정하면 null)",
+      "enriched_at": "string (RFC3339) | null"
     },
     "Goal": {
       "id": "string (ULID)",
-      "parent_id": "string | null (인생 목표 아래 연간·장기)",
+      "parent_id": "string | null (인생 목표 아래 연간·단기·장기)",
       "title": "string",
       "tag": "string (슬러그, unique)",
-      "kind": "life | annual | long",
+      "kind": "life | annual | short | long",
       "period_start": "YYYY-MM-DD | null",
       "period_end": "YYYY-MM-DD | null",
       "status": "active | done | paused | dropped",
@@ -101,7 +103,8 @@
       },
       "output": "Todo",
       "sideEffects": [
-        "brain_sync(created) when brain_ref is set"
+        "brain_sync(created) when brain_ref is set",
+        "ANTHROPIC_API_KEY 설정 시 비어 있는 tags/lead_days/due/goal을 백그라운드에서 자동 분류(사용자 값은 유지). 호출 응답에는 아직 반영되지 않으며 다음 조회에 나타난다"
       ]
     },
     {
@@ -256,7 +259,7 @@
     },
     {
       "name": "list_goals",
-      "description": "인생·연간·장기 목표를 진행률과 함께. 대화당 한 번 호출해 목표 태그를 파악한다.",
+      "description": "인생·연간·단기·장기 목표를 진행률과 함께. 대화당 한 번 호출해 목표 태그를 파악한다.",
       "input": {
         "status": {
           "type": "active | all",
@@ -267,10 +270,10 @@
     },
     {
       "name": "add_goal",
-      "description": "목표 생성. kind, tag, year(annual), parent(인생 목표 태그), why, metrics[].",
+      "description": "목표 생성. kind, tag, year(annual), period_end(short 필수), parent(인생 목표 태그), why, metrics[].",
       "input": {
         "title": "string",
-        "kind": "life | annual | long",
+        "kind": "life | annual | short | long",
         "tag": "^[a-z0-9][a-z0-9_-]{0,31}$",
         "parent": "string?",
         "year": "int?",

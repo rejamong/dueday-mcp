@@ -313,3 +313,25 @@ test('goals page: life goal, annual goal metric tracking, check-in, and todo lin
     await expect(goalCard.locator('.goal-detail-todos').getByText(LINKED_TODO_TITLE)).toBeVisible()
   })
 })
+
+test('AI 제안 panel: absent with no suggestions, goals page loads cleanly', async ({ page }) => {
+  const consoleErrors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') consoleErrors.push(msg.text())
+  })
+
+  await test.step('log in via the REST API (never type the password into the login form)', async () => {
+    const res = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })
+    expect(res.ok()).toBe(true)
+    await page.request.post('/api/todos', { data: { title: 'E2E 제안 패널 테스트 할 일' } })
+  })
+
+  await test.step('goals page renders with no AI 제안 section and no console errors', async () => {
+    await page.goto('/')
+    await expect(page.locator('.topbar')).toBeVisible()
+    await page.click('.nav-tabs button:has-text("목표")')
+    await expect(page.locator('.goals-page')).toBeVisible()
+    await expect(page.locator('.goal-suggestions')).toHaveCount(0)
+    expect(consoleErrors).toEqual([])
+  })
+})

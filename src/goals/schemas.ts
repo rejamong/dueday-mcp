@@ -20,12 +20,12 @@ export const metricInputSchema = z.object({
 
 export const addGoalSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  kind: z.enum(['life', 'annual', 'long']).describe('life=인생 목표(하나), annual=연간, long=기간 없는 장기'),
+  kind: z.enum(['life', 'annual', 'short', 'long']).describe('life=인생 목표(하나), annual=연간(year), short=단기(몇 주~몇 달, period_end 필수), long=기간 없는 장기'),
   tag: goalTagSchema,
   parent: z.string().trim().optional().describe('상위 목표 태그 또는 id (보통 인생 목표 태그)'),
   year: z.number().int().min(2000).max(2100).optional().describe('annual일 때 연도. period_start/end 대신 사용'),
   period_start: dateOnlySchema.optional(),
-  period_end: dateOnlySchema.optional(),
+  period_end: dateOnlySchema.optional().describe('short는 필수. 없으면 period_start는 오늘'),
   why: z.string().trim().max(300).optional().describe('이 목표가 인생 목표에 어떻게 닿는지 한 줄'),
   metrics: z.array(metricInputSchema).max(8).default([]),
 })

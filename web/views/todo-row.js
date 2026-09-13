@@ -28,8 +28,27 @@ function goalChipHtml(goalTag) {
   return `<button type="button" class="goal-chip" data-goal-tag="${escapeHtml(goalTag)}">◎ ${escapeHtml(goalTag)}</button>`
 }
 
-function tagChips(tags, goalTag) {
-  const chips = (tags || []).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('') + goalChipHtml(goalTag)
+const ENRICHMENT_TOOLTIP_PARTS = [
+  ['tags', (v) => (Array.isArray(v) && v.length > 0 ? `태그 ${v.join('·')}` : null)],
+  ['goal', (v) => (v ? `목표 ${v}` : null)],
+  ['lead_days', (v) => (v !== null && v !== undefined ? `준비 ${v}일` : null)],
+  ['due', (v) => (v ? `마감 ${v}` : null)],
+]
+
+/** `자동 분류: 태그 업무·개인 · 목표 reading · 준비 5일 · 마감 2026-09-18` — only keys present in `enrichment`. */
+function enrichmentTooltip(enrichment) {
+  const parts = ENRICHMENT_TOOLTIP_PARTS.map(([key, format]) => format(enrichment[key])).filter(Boolean)
+  return `자동 분류: ${parts.join(' · ')}`
+}
+
+/** Small muted "AI" chip shown when the server's classifier auto-filled this todo's fields. */
+function aiChipHtml(enrichment) {
+  if (!enrichment) return ''
+  return `<span class="chip-ai" title="${escapeHtml(enrichmentTooltip(enrichment))}">AI</span>`
+}
+
+function tagChips(tags, goalTag, enrichment) {
+  const chips = (tags || []).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('') + goalChipHtml(goalTag) + aiChipHtml(enrichment)
   if (!chips) return ''
   return `<div class="row-tags">${chips}</div>`
 }
@@ -101,7 +120,7 @@ function renderNormalRow(todo, state, actions, rowKey) {
       ${isCancelled ? '' : completeControlsHtml(isDone)}
       <div class="row-text">
         <div class="row-title ${isDone ? 'is-done' : ''} ${isCancelled ? 'is-cancelled' : ''}">${escapeHtml(todo.title)}</div>
-        ${tagChips(todo.tags, todo.goal_tag)}
+        ${tagChips(todo.tags, todo.goal_tag, todo.enrichment)}
       </div>
       ${prep ? `<span class="row-prep">${escapeHtml(prep)}</span>` : '<span class="row-prep row-prep-empty"></span>'}
       <span class="due-badge badge-${variant}">${escapeHtml(badgeText(state.today, todo, variant))}</span>

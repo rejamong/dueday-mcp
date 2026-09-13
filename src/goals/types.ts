@@ -1,7 +1,7 @@
 import type { Cadence, GoalStatus, MetricDirection, MetricKind, MetricProgress, StatusLabel } from './progress.js'
 import type { Todo } from '../todos/types.js'
 
-export type GoalKind = 'life' | 'annual' | 'long'
+export type GoalKind = 'life' | 'annual' | 'short' | 'long'
 
 export interface GoalRow {
   readonly id: string

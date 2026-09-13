@@ -21,6 +21,10 @@ export function annualGoalsForYear(goals, today) {
   return goals.filter((g) => g.kind === 'annual' && g.period_start && Number(g.period_start.slice(0, 4)) === year)
 }
 
+export function shortTermGoals(goals) {
+  return goals.filter((g) => g.kind === 'short')
+}
+
 export function longTermGoals(goals) {
   return goals.filter((g) => g.kind === 'long')
 }

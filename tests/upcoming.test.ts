@@ -15,6 +15,8 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     brain_ref: null,
     goal_id: null,
     goal_tag: null,
+    enrichment: null,
+    enriched_at: null,
     source: 'mcp',
     created_at: '2026-09-01T09:00:00+09:00',
     updated_at: '2026-09-01T09:00:00+09:00',

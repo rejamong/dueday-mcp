@@ -34,6 +34,7 @@ function initialState() {
     addGoalPresetKind: null,
     unlinkedTodos: null,
     pendingGoal: null,
+    suggestions: [],
   }
 }
 

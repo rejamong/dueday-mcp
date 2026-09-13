@@ -15,12 +15,22 @@ function buildPayload(refs, state) {
 
   const payload = { title, kind, tag, metrics }
   if (kind === 'annual') payload.year = refs.year.value === '' ? currentYear(state) : Number(refs.year.value)
+  if (kind === 'short') payload.period_end = refs.periodEnd.value
   if (why) payload.why = why
   return payload
 }
 
-function syncYearVisibility(refs) {
+function syncKindFields(refs) {
   refs.yearWrap.hidden = refs.kind.value !== 'annual'
+  refs.periodEndWrap.hidden = refs.kind.value !== 'short'
+  refs.periodEnd.required = refs.kind.value === 'short'
+}
+
+/** Default end date for a short-term goal: about a quarter from today (YYYY-MM-DD). */
+function defaultShortEnd(state) {
+  const base = state.today ? new Date(`${state.today}T00:00:00Z`) : new Date()
+  base.setUTCDate(base.getUTCDate() + 90)
+  return base.toISOString().slice(0, 10)
 }
 
 /** Inline "+ 목표 추가" panel: title/kind/tag/year/why plus a metrics editor. */
@@ -33,6 +43,7 @@ export function render(state, actions) {
         <label class="visually-hidden" for="ga-kind">종류</label>
         <select id="ga-kind" class="ga-kind">
           <option value="annual">연간</option>
+          <option value="short">단기</option>
           <option value="long">장기</option>
           <option value="life">인생</option>
         </select>
@@ -41,6 +52,10 @@ export function render(state, actions) {
         <span class="ga-year-wrap">
           <label class="visually-hidden" for="ga-year">연도</label>
           <input id="ga-year" class="ga-year" type="number" placeholder="연도" value="${currentYear(state)}" />
+        </span>
+        <span class="ga-period-end-wrap">
+          <label class="visually-hidden" for="ga-period-end">종료일</label>
+          <input id="ga-period-end" class="ga-period-end" type="date" value="${defaultShortEnd(state)}" />
         </span>
       </div>
       <label class="visually-hidden" for="ga-why">왜</label>
@@ -62,13 +77,15 @@ export function render(state, actions) {
     tag: el.querySelector('.ga-tag'),
     year: el.querySelector('.ga-year'),
     yearWrap: el.querySelector('.ga-year-wrap'),
+    periodEnd: el.querySelector('.ga-period-end'),
+    periodEndWrap: el.querySelector('.ga-period-end-wrap'),
     why: el.querySelector('.ga-why'),
     metricsRows: el.querySelector('.metrics-editor-rows'),
   }
 
   if (state.addGoalPresetKind) refs.kind.value = state.addGoalPresetKind
-  syncYearVisibility(refs)
-  refs.kind.addEventListener('change', () => syncYearVisibility(refs))
+  syncKindFields(refs)
+  refs.kind.addEventListener('change', () => syncKindFields(refs))
 
   el.querySelector('.ga-add-metric').addEventListener('click', () => {
     refs.metricsRows.appendChild(renderMetricRow())

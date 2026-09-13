@@ -47,3 +47,18 @@ export async function api(path, options = {}) {
   }
   return envelope
 }
+
+/** AI가 자동으로 감지한 목표 승격 제안 목록. */
+export function listSuggestions() {
+  return api('/api/suggestions')
+}
+
+/** 제안을 목표로 등록한다 (원본 할 일도 서버에서 그 목표로 연결됨). */
+export function acceptSuggestion(id) {
+  return api(`/api/suggestions/${encodeURIComponent(id)}/accept`, { method: 'POST' })
+}
+
+/** 제안을 무시한다. */
+export function dismissSuggestion(id) {
+  return api(`/api/suggestions/${encodeURIComponent(id)}/dismiss`, { method: 'POST' })
+}

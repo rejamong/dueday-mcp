@@ -8,6 +8,8 @@ import { openDatabase } from './db/connection.js'
 import { OAuthService } from './oauth/service.js'
 import { TodoService } from './todos/service.js'
 import { GoalService } from './goals/service.js'
+import { Enricher } from './enrich/service.js'
+import { createAnthropicEnrichClient } from './enrich/client.js'
 
 async function buildBrainSync(config: ReturnType<typeof loadConfig>): Promise<BrainSync> {
   const gbrain = config.gbrain
@@ -30,13 +32,18 @@ async function main(): Promise<void> {
   const db = openDatabase(config.dbPath)
   const brainSync = await buildBrainSync(config)
   const goals = new GoalService({ db })
-  const service = new TodoService({ db, brainSync, goals })
+  const enricher = config.enrich
+    ? new Enricher({ db, client: createAnthropicEnrichClient({ apiKey: config.enrich.apiKey, model: config.enrich.model }), model: config.enrich.model, dailyCap: config.enrich.dailyCap })
+    : undefined
+  const service = new TodoService({ db, brainSync, goals, ...(enricher ? { enricher } : {}) })
+  enricher?.attach(service, goals)
   const oauth = config.oauth
     ? new OAuthService({ db, resourcePath: '/mcp', ...config.oauth })
     : undefined
   const app = createApp({
     service,
     goals,
+    ...(enricher ? { enricher } : {}),
     apiToken: config.apiToken,
     rateLimitPerMinute: config.rateLimitPerMinute,
     ...(oauth ? { oauth } : {}),
@@ -46,7 +53,7 @@ async function main(): Promise<void> {
 
   const server = serve({ fetch: app.fetch, port: config.port })
 
-  process.stdout.write(`dueday-mcp listening on port ${config.port} (${config.nodeEnv}, oauth ${oauth ? 'on' : 'off'})\n`)
+  process.stdout.write(`dueday-mcp listening on port ${config.port} (${config.nodeEnv}, oauth ${oauth ? 'on' : 'off'}, enrich ${enricher ? config.enrich?.model : 'off'})\n`)
 
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals): void => {

@@ -8,6 +8,7 @@ import { ensureTags, listTagsWithOpenCount, normalizeTagNames, replaceTodoTags }
 import { parseDue, todayInSeoul, toSeoulIso } from './dates.js'
 import { deleteTodo, findTodo, insertTodo, listOpenTodos, listTodos, updateTodo, type TodoPage, type TodoPatch } from './repository.js'
 import {
+  DEFAULT_LEAD_DAYS,
   addTodoSchema,
   idSchema,
   listTodosSchema,
@@ -16,7 +17,7 @@ import {
   type UpdateTodoInput,
 } from './schemas.js'
 import { groupUpcoming } from './upcoming.js'
-import type { TagSummary, Todo, TodoSource, UpcomingResult } from './types.js'
+import type { EnrichmentApplied, TagSummary, Todo, TodoSource, UpcomingResult } from './types.js'
 
 export interface Clock {
   now(): Date
@@ -26,16 +27,34 @@ export interface GoalResolver {
   resolve(ref: string): { readonly id: string }
 }
 
+export interface ProvidedFields {
+  readonly tags: boolean
+  readonly lead_days: boolean
+  readonly goal: boolean
+  readonly due: boolean
+}
+
+export interface EnrichQueue {
+  enqueue(todoId: string, provided: ProvidedFields): void
+}
+
 export interface TodoServiceDeps {
   readonly db: Db
   readonly clock?: Clock
   readonly brainSync?: BrainSync
   /** Resolves goal tags/ids for the `goal` field; without it, goal linking is rejected. */
   readonly goals?: GoalResolver
+  /** Optional classifier that fills blank fields after add. */
+  readonly enricher?: EnrichQueue
 }
 
 const systemClock: Clock = { now: () => new Date() }
 const nextUlid = monotonicFactory()
+
+function sameContent(a: Todo, b: Todo): boolean {
+  return a.title === b.title && a.note === b.note && a.due_at === b.due_at && a.lead_days === b.lead_days
+    && a.goal_id === b.goal_id && a.tags.join(',') === b.tags.join(',')
+}
 
 function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
   const out: Record<string, string | number | null> = {}
@@ -58,12 +77,14 @@ export class TodoService {
   private readonly clock: Clock
   private readonly brainSync: BrainSync
   private readonly goals: GoalResolver
+  private readonly enricher: EnrichQueue | null
 
   constructor(deps: TodoServiceDeps) {
     this.db = deps.db
     this.clock = deps.clock ?? systemClock
     this.brainSync = deps.brainSync ?? disabledBrainSync
     this.goals = deps.goals ?? NO_GOALS
+    this.enricher = deps.enricher ?? null
   }
 
   private goalIdOf(ref: string | null | undefined): string | null | undefined {
@@ -88,10 +109,12 @@ export class TodoService {
         title: data.title,
         note: data.note ?? null,
         due_at: data.due === undefined ? null : parseDue(data.due),
-        lead_days: data.lead_days,
+        lead_days: data.lead_days ?? DEFAULT_LEAD_DAYS,
         status: 'open',
         brain_ref: data.brain_ref ?? null,
         goal_id: goalId,
+        enrichment: null,
+        enriched_at: null,
         source,
         created_at: now,
         updated_at: now,
@@ -101,7 +124,44 @@ export class TodoService {
     })
     const todo = this.get(id)
     await this.syncBrain('created', todo)
+    this.enricher?.enqueue(id, {
+      tags: tagNames.length > 0,
+      lead_days: data.lead_days !== undefined,
+      goal: data.goal !== undefined,
+      due: data.due !== undefined,
+    })
     return todo
+  }
+
+  /** Like get(), but returns undefined instead of throwing (for background work on possibly-deleted todos). */
+  find(id: string): Todo | undefined {
+    return findTodo(this.db, id)
+  }
+
+  /**
+   * Applies classifier output to blank fields and records it; separate from update() so the marker is not cleared.
+   * Returns null without writing when the todo's content differs from `snapshot` (a manual edit raced the classifier).
+   * Timestamps are second-resolution, so the comparison is on content rather than updated_at.
+   */
+  async applyEnrichment(id: string, applied: EnrichmentApplied, snapshot: Todo): Promise<Todo | null> {
+    const existing = this.get(id)
+    if (!sameContent(existing, snapshot)) return null
+    const now = toSeoulIso(this.clock.now())
+    const goalId = applied.goal === undefined ? undefined : this.goals.resolve(applied.goal).id
+    this.transaction(() => {
+      updateTodo(this.db, existing.id, {
+        ...(applied.lead_days !== undefined ? { lead_days: applied.lead_days } : {}),
+        ...(applied.due !== undefined ? { due_at: parseDue(applied.due) } : {}),
+        ...(goalId !== undefined ? { goal_id: goalId } : {}),
+        enrichment: JSON.stringify(applied),
+        enriched_at: now,
+        updated_at: now,
+      })
+      if (applied.tags !== undefined) {
+        replaceTodoTags(this.db, existing.id, ensureTags(this.db, normalizeTagNames(applied.tags), now))
+      }
+    })
+    return this.get(existing.id)
   }
 
   get(id: string): Todo {
@@ -122,7 +182,7 @@ export class TodoService {
     const now = toSeoulIso(this.clock.now())
     const goalId = this.goalIdOf(patch.goal)
     this.transaction(() => {
-      updateTodo(this.db, existing.id, { ...rowPatchFrom(patch), ...(goalId !== undefined ? { goal_id: goalId } : {}), updated_at: now })
+      updateTodo(this.db, existing.id, { ...rowPatchFrom(patch), ...(goalId !== undefined ? { goal_id: goalId } : {}), enrichment: null, enriched_at: null, updated_at: now })
       if (patch.tags !== undefined) {
         replaceTodoTags(this.db, existing.id, ensureTags(this.db, normalizeTagNames(patch.tags), now))
       }

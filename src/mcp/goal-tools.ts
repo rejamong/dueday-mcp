@@ -29,7 +29,7 @@ export function registerGoalTools(server: McpServer, goals: GoalService, ok: Ok,
     {
       title: '목표 추가',
       description:
-        '목표를 만든다. kind=life는 인생 목표(하나), annual은 연간(year 지정), long은 기간 없는 장기. tag는 짧은 영문 슬러그(예: reading, weight). metrics에 지표를 넣는다: count(누적, 독서 15권·일기 100일·본가 12회), value(측정값, 팔로워 20000·몸무게 76 lte·BTC 3), boolean(취업 여부). 한 목표에 지표 여러 개 가능(크립토: btc, eth, stable).',
+        '목표를 만든다. kind=life는 인생 목표(하나), annual은 연간(year 지정), short는 단기(몇 주~몇 달, period_end 필수, period_start 기본 오늘), long은 기간 없는 장기. tag는 짧은 영문 슬러그(예: reading, weight). metrics에 지표를 넣는다: count(누적, 독서 15권·일기 100일·본가 12회), value(측정값, 팔로워 20000·몸무게 76 lte·BTC 3), boolean(취업 여부). 한 목표에 지표 여러 개 가능(크립토: btc, eth, stable).',
       inputSchema: addGoalSchema,
       outputSchema: envelope(goalOutput),
     },

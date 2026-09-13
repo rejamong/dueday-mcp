@@ -15,10 +15,12 @@ import { createOAuthRoutes } from './oauth/routes.js'
 import type { OAuthService } from './oauth/service.js'
 import type { TodoService } from './todos/service.js'
 import type { GoalService } from './goals/service.js'
+import type { Enricher } from './enrich/service.js'
 
 export interface AppDeps {
   readonly service: TodoService
   readonly goals?: GoalService
+  readonly enricher?: Enricher
   readonly apiToken: string
   readonly rateLimitPerMinute?: number
   /** When present, OAuth 2.1 endpoints are mounted and OAuth access tokens are accepted alongside apiToken. */
@@ -71,7 +73,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.use('/api/*', ...apiGuard)
   app.get('/api/session', (c) => c.json({ success: true, data: { authenticated: true }, meta: { today: deps.service.today() } }))
-  app.route('/api', createApiRoutes(deps.service, deps.goals))
+  app.route('/api', createApiRoutes(deps.service, deps.goals, deps.enricher))
 
   app.all('/mcp', ...mcpGuard, async (c) => {
     await logMcpRequest(c)
