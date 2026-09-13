@@ -89,6 +89,15 @@ describe('GoalService', () => {
     await expect(todos.add({ title: 'x', goal: 'missing' })).rejects.toThrow(NotFoundError)
   })
 
+  it('treats limit goals as on track (not done) and unmeasured value goals as no signal', async () => {
+    const fights = await goals.add({ title: '다툼 3회 이하', kind: 'annual', tag: 'marriage', year: 2026, metrics: [{ name: '다툼', kind: 'count', direction: 'lte', target_value: 3 }] })
+    expect(fights.status_label).toBe('on_track')
+    const followers = await goals.add({ title: '팔로워', kind: 'annual', tag: 'twitter', year: 2026, metrics: [{ name: '팔로워', kind: 'value', direction: 'gte', target_value: 20000 }] })
+    expect(followers.status_label).toBe('none')
+    await goals.logProgress('twitter', { value: 5000 })
+    expect((await goals.get('twitter')).status_label).toBe('behind')
+  })
+
   it('lists active goals with progress, rolling children up into the life goal', async () => {
     await goals.add({ title: '인생', kind: 'life', tag: 'life' })
     await goals.add({ title: 'a', kind: 'annual', tag: 'a', parent: 'life', year: 2026, metrics: [{ name: 'm', kind: 'count', direction: 'gte', target_value: 10 }] })

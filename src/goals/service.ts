@@ -142,7 +142,9 @@ export class GoalService {
       ? Math.round(metrics.reduce((s, m) => s + m.percent, 0) / metrics.length)
       : total > 0 ? Math.round((todos.done / total) * 100) : 0
     const time_percent = timePercent(goal.period_start, goal.period_end, today)
-    const status_label = goalStatus({ percent, time_percent, status: goal.status, has_signal: metrics.length > 0 || total > 0 })
+    const has_signal = metrics.some((m) => m.current_value !== null) || total > 0
+    const completable = metrics.length === 0 || metrics.some((m) => m.direction === 'gte')
+    const status_label = goalStatus({ percent, time_percent, status: goal.status, has_signal, completable })
     return { ...goal, metrics, todos, percent, time_percent, status_label, checkin_count: checkins.length }
   }
 

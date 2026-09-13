@@ -67,5 +67,6 @@ describe('timePercent / goalStatus', () => {
     expect(goalStatus({ percent: 40, time_percent: 70, status: 'active', has_signal: true })).toBe('behind')
     expect(goalStatus({ percent: 40, time_percent: null, status: 'active', has_signal: true })).toBe('on_track')
     expect(goalStatus({ percent: 0, time_percent: 70, status: 'active', has_signal: false })).toBe('none')
+    expect(goalStatus({ percent: 100, time_percent: 70, status: 'active', has_signal: true, completable: false })).toBe('on_track')
   })
 })

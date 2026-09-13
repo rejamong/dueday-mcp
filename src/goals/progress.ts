@@ -89,12 +89,16 @@ export interface StatusInput {
   readonly percent: number
   readonly time_percent: number | null
   readonly status: GoalStatus
+  /** At least one metric has data (or the goal has todos); otherwise progress is unknown. */
   readonly has_signal: boolean
+  /** False when the goal only has limit-type metrics (lte/maintain): staying within budget is not "achieved" until the period ends. */
+  readonly completable?: boolean
 }
 
 export function goalStatus(input: StatusInput): StatusLabel {
-  if (input.status === 'done' || input.percent >= 100) return 'done'
+  if (input.status === 'done') return 'done'
   if (!input.has_signal) return 'none'
+  if (input.percent >= 100) return input.completable === false ? 'on_track' : 'done'
   if (input.time_percent === null) return 'on_track'
   if (input.percent >= input.time_percent + AHEAD_MARGIN) return 'ahead'
   if (input.percent < input.time_percent - BEHIND_MARGIN) return 'behind'
