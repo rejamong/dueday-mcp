@@ -335,3 +335,61 @@ test('AI 제안 panel: absent with no suggestions, goals page loads cleanly', as
     expect(consoleErrors).toEqual([])
   })
 })
+
+test('calendar quick-add: + on a day cell adds a todo inline without changing month', async ({ page }) => {
+  const TITLE = 'E2E 달력 퀵애드 테스트'
+  let today = ''
+  let targetDate = ''
+
+  await test.step('log in via the REST API (never type the password into the login form)', async () => {
+    const res = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })
+    expect(res.ok()).toBe(true)
+  })
+
+  await test.step('open the app, read today, and switch to 달력', async () => {
+    await page.goto('/')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+
+    // A day near today but guaranteed to stay in the same displayed month (falls back to -2 near month end).
+    targetDate = addDaysUtc(today, 2)
+    if (targetDate.slice(0, 7) !== today.slice(0, 7)) targetDate = addDaysUtc(today, -2)
+
+    await page.click('.view-toggle-btn[data-view="달력"]')
+    await expect(page.locator('.calendar-cells')).toBeVisible()
+  })
+
+  const calendarTitleBefore = await page.locator('.calendar-title').textContent()
+
+  await test.step('click + on the target day cell, type a title, and press Enter', async () => {
+    const addBtn = page.locator(`.cal-cell-add[data-date="${targetDate}"]`)
+    await addBtn.hover()
+    await addBtn.click()
+
+    const input = page.locator('.cal-quick-add-input')
+    await expect(input).toBeFocused()
+    await input.fill(TITLE)
+    await input.press('Enter')
+
+    await expect(page.locator('#toast')).toContainText('추가됨')
+  })
+
+  await test.step('the chip shows up in that same day cell, and the month did not change', async () => {
+    const dayCell = page.locator(`.cal-cell[data-date="${targetDate}"]`)
+    await expect(dayCell).toContainText(TITLE)
+    await expect(page.locator('.calendar-title')).toHaveText(calendarTitleBefore ?? '')
+  })
+
+  await test.step('clean up the todo via the API', async () => {
+    const searchRes = await page.request.get(`/api/todos?q=${encodeURIComponent(TITLE)}`)
+    expect(searchRes.ok()).toBe(true)
+    const { data } = await searchRes.json()
+    const todo = data.find((t: { title: string }) => t.title === TITLE)
+    expect(todo).toBeTruthy()
+
+    const deleteRes = await page.request.delete(`/api/todos/${todo.id}`)
+    expect(deleteRes.ok()).toBe(true)
+  })
+})

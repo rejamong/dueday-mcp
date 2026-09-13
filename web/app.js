@@ -171,6 +171,15 @@ const actions = {
     set({ calendar: { ...getState().calendar, selectedDay: date } })
   },
 
+  /** Opens the inline quick-add input for one day cell, closing any other cell's open input. */
+  calendarOpenQuickAdd(date) {
+    set({ calendar: { ...getState().calendar, quickAddDay: date } })
+  },
+
+  calendarCloseQuickAdd() {
+    set({ calendar: { ...getState().calendar, quickAddDay: null } })
+  },
+
   toggleMenu(id) {
     const { menuOpenId } = getState()
     set({ menuOpenId: menuOpenId === id ? null : id })

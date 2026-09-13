@@ -5,6 +5,8 @@ import { openDatabase } from '../src/db/connection.js'
 import { createMcpServer } from '../src/mcp/server.js'
 import { TodoService } from '../src/todos/service.js'
 import { GoalService } from '../src/goals/service.js'
+import { Enricher } from '../src/enrich/service.js'
+import type { EnrichClient } from '../src/enrich/client.js'
 
 interface Envelope<T> {
   success: boolean
@@ -12,12 +14,14 @@ interface Envelope<T> {
   meta: { today: string; total?: number }
 }
 
-async function connectedClient(): Promise<Client> {
+async function connectedClient(enrichClient?: EnrichClient): Promise<Client> {
   const db = openDatabase(':memory:')
   const clock = { now: () => new Date('2026-09-11T01:00:00Z') }
   const goals = new GoalService({ db, clock })
-  const service = new TodoService({ db, clock, goals })
-  const server = createMcpServer(service, goals)
+  const enricher = enrichClient ? new Enricher({ db, clock, client: enrichClient, model: 'fake', dailyCap: 10 }) : undefined
+  const service = new TodoService({ db, clock, goals, ...(enricher ? { enricher } : {}) })
+  enricher?.attach(service, goals)
+  const server = createMcpServer(service, goals, enricher)
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
   const client = new Client({ name: 'test-client', version: '0.0.1' })
   await server.connect(serverTransport)
@@ -136,5 +140,29 @@ describe('MCP server', () => {
     })
     expect(missing.isError).toBe(true)
     expect(String((missing.content as Array<{ text: string }>)[0]?.text)).toContain('찾을 수 없습니다')
+  })
+})
+
+describe('MCP add_todo with server-side classification', () => {
+  it('waits for the classification and returns the filled todo plus a goal suggestion', async () => {
+    const client = await connectedClient({
+      classify: async () => ({
+        tags: ['건강'], goal: null, goal_confidence: 'low', lead_days: 1, due: null, reason: 'r',
+        promote_to_goal: { title: '매주 달리기', kind: 'short', period_end: '2026-12-31', tag: 'running', why: '건강', metric: { name: '달린 횟수', kind: 'count', direction: 'gte', target_value: 30, unit: '회' } },
+      }),
+    })
+    const res = await call<{ tags: string[]; lead_days: number; enrichment: unknown; suggestion: { id: string; tag: string; kind: string } | null }>(client, 'add_todo', { title: '매주 두 번 달리기' })
+    expect(res.data.tags).toEqual(['건강'])
+    expect(res.data.lead_days).toBe(1)
+    expect(res.data.enrichment).toEqual({ tags: ['건강'], lead_days: 1 })
+    expect(res.data.suggestion?.tag).toBe('running')
+    expect(res.data.suggestion?.kind).toBe('short')
+    expect(typeof res.data.suggestion?.id).toBe('string')
+  })
+
+  it('returns suggestion null without an enricher', async () => {
+    const client = await connectedClient()
+    const res = await call<{ suggestion: unknown }>(client, 'add_todo', { title: 'x' })
+    expect(res.data.suggestion).toBeNull()
   })
 })

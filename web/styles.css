@@ -349,6 +349,60 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .cal-chip-prep { color: var(--soft); background: var(--paper); border: 1px dashed var(--rule); }
 .cal-chip-more { font-family: var(--font-mono); font-size: 11px; color: var(--soft); }
 
+/* Calendar — per-day quick add */
+.cal-cell-wrap { position: relative; min-width: 0; min-height: 124px; }
+.cal-cell { width: 100%; height: 100%; }
+
+.cal-cell-add {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  line-height: 18px;
+  text-align: center;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s, border-color .15s;
+}
+.cal-cell-add:hover { background: var(--accent-tint); color: var(--accent); border-color: var(--accent); }
+.cal-cell-wrap:hover .cal-cell-add,
+.cal-cell-wrap:focus-within .cal-cell-add {
+  opacity: 1;
+}
+
+.cal-quick-add {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--sp-2);
+  background: var(--surface);
+}
+.cal-quick-add-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font-size: 12px;
+  background: var(--surface);
+}
+.cal-quick-add-input:disabled { opacity: .6; }
+
+@media (max-width: 640px) {
+  .cal-cell-add { opacity: .55; }
+}
+
 .calendar-block.is-loading { opacity: .6; pointer-events: none; }
 
 /* Calendar — selected day list */
@@ -374,7 +428,7 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
   .editor-due, .editor-tags, .editor-goal { width: 100%; }
   .editor-lead-wrap { width: auto; }
   .qa-goal { flex-basis: 100%; max-width: none; }
-  .cal-cell { min-height: 96px; }
+  .cal-cell, .cal-cell-wrap { min-height: 96px; }
   .calendar-toolbar { flex-direction: column; align-items: stretch; }
   .calendar-toolbar-nav { justify-content: center; }
   .calendar-toolbar-right { justify-content: space-between; }

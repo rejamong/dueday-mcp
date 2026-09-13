@@ -10,7 +10,7 @@ import type { Todo } from '../todos/types.js'
 import { listTagsWithOpenCount } from '../tags/repository.js'
 import type { EnrichClient, EnrichmentOutput } from './client.js'
 import {
-  countCallsSince, findSuggestion, insertEnrichmentLog, listSuggestions, markSuggestion, type EnrichmentApplied, type EnrichmentLogRow, type SuggestionRow,
+  countCallsSince, findPendingSuggestionForTodo, findSuggestion, insertEnrichmentLog, listSuggestions, markSuggestion, type EnrichmentApplied, type EnrichmentLogRow, type SuggestionRow,
 } from './repository.js'
 
 export interface ProvidedFields {
@@ -51,6 +51,8 @@ export class Enricher {
   private todos: TodoService | null = null
   private goals: GoalService | null = null
   private queue: Promise<void> = Promise.resolve()
+  /** In-flight classification per todo, so a caller can wait for its own item without draining the whole queue. */
+  private readonly jobs = new Map<string, Promise<void>>()
 
   constructor(deps: EnricherDeps) {
     this.db = deps.db
@@ -67,7 +69,31 @@ export class Enricher {
 
   enqueue(todoId: string, provided: ProvidedFields): void {
     if (nothingBlank(provided)) return
-    this.queue = this.queue.then(() => this.run(todoId, provided)).catch((error) => console.error('enrich 큐 오류:', error))
+    const job = this.queue
+      .then(() => this.run(todoId, provided))
+      .catch((error) => console.error('enrich 큐 오류:', error))
+      .finally(() => this.jobs.delete(todoId))
+    this.jobs.set(todoId, job)
+    this.queue = job
+  }
+
+  /** Resolves when this todo's classification finishes or `timeoutMs` passes, whichever comes first. */
+  async waitFor(todoId: string, timeoutMs: number): Promise<void> {
+    const job = this.jobs.get(todoId)
+    if (!job) return
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs) })
+    try {
+      await Promise.race([job, timeout])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  /** The open goal suggestion produced for this todo, if any (for the MCP add_todo response). */
+  pendingSuggestionFor(todoId: string): (SuggestionRow & { suggestion: NonNullable<SuggestionRow['suggestion']> }) | undefined {
+    const row = findPendingSuggestionForTodo(this.db, todoId)
+    return row && row.suggestion ? { ...row, suggestion: row.suggestion } : undefined
   }
 
   /** Waits for every queued classification (tests, graceful shutdown). */

@@ -24,7 +24,7 @@ function initialState() {
     confirmDeleteId: null,
     focusMenuId: null,
     view: loadView(),
-    calendar: { month: null, todos: [], selectedDay: null, loading: false },
+    calendar: { month: null, todos: [], selectedDay: null, loading: false, quickAddDay: null },
     goals: [],
     goalsLoading: false,
     goalDetails: {},

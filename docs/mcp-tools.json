@@ -57,7 +57,7 @@
   "tools": [
     {
       "name": "add_todo",
-      "description": "새 할 일을 등록한다. 상대 날짜(이번주 금요일 등)는 호출 전에 meta.today 기준 Asia/Seoul로 ISO 날짜로 바꿔서 넘긴다. 기존 태그를 재사용하려면 먼저 list_tags를 본다.",
+      "description": "새 할 일을 등록한다. 상대 날짜(이번주 금요일 등)는 호출 전에 meta.today 기준 Asia/Seoul로 ISO 날짜로 바꿔서 넘긴다. 자동 분류가 켜져 있으면(ANTHROPIC_API_KEY) 서버가 비어 있는 tags/lead_days/goal을 채워 응답에 돌려주므로 사용자가 명시한 값만 넘긴다. 꺼져 있으면 기존 태그 재사용을 위해 먼저 list_tags를 본다.",
       "input": {
         "title": {
           "type": "string",
@@ -101,10 +101,10 @@
           "note": "연결할 목표 태그. list_goals로 확인 후 분명할 때만; 없으면 일상"
         }
       },
-      "output": "Todo",
+      "output": "Todo + { suggestion: { id, title, kind: annual|short|long, period_end, tag, why, metric } | null }",
       "sideEffects": [
         "brain_sync(created) when brain_ref is set",
-        "ANTHROPIC_API_KEY 설정 시 비어 있는 tags/lead_days/due/goal을 백그라운드에서 자동 분류(사용자 값은 유지). 호출 응답에는 아직 반영되지 않으며 다음 조회에 나타난다"
+        "ANTHROPIC_API_KEY 설정 시 비어 있는 tags/lead_days/due/goal을 자동 분류(사용자 값은 유지). MCP 호출은 최대 8초 기다렸다가 채워진 결과를 돌려준다; suggestion은 목표 승격 제안(승낙 시 add_goal + update_todo(goal), 같은 tag의 목표가 생기면 제안은 자동으로 사라짐)"
       ]
     },
     {

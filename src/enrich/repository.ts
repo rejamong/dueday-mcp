@@ -57,14 +57,28 @@ export interface SuggestionRow extends EnrichmentLogRow {
 }
 
 /** Goal-promotion suggestions not yet accepted or dismissed. */
+/** Open suggestions only: not dismissed/accepted, and whose tag has not since become a goal (e.g. created via add_goal in chat). */
+const PENDING_SUGGESTION_WHERE = `e.suggestion IS NOT NULL AND e.dismissed_at IS NULL AND e.accepted_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM goals g WHERE g.tag = json_extract(e.suggestion, '$.tag'))`
+
 export function listSuggestions(db: Db): SuggestionRow[] {
   const rows = db
     .prepare(
       `SELECT e.*, t.title AS todo_title FROM enrichment_log e JOIN todos t ON t.id = e.todo_id
-        WHERE e.suggestion IS NOT NULL AND e.dismissed_at IS NULL AND e.accepted_at IS NULL ORDER BY e.created_at DESC`,
+        WHERE ${PENDING_SUGGESTION_WHERE} ORDER BY e.created_at DESC`,
     )
     .all() as unknown as Array<Raw & { todo_title: string }>
   return rows.map((r) => ({ ...parse(r), todo_title: r.todo_title }))
+}
+
+export function findPendingSuggestionForTodo(db: Db, todoId: string): SuggestionRow | undefined {
+  const row = db
+    .prepare(
+      `SELECT e.*, t.title AS todo_title FROM enrichment_log e JOIN todos t ON t.id = e.todo_id
+        WHERE e.todo_id = ? AND ${PENDING_SUGGESTION_WHERE} ORDER BY e.created_at DESC LIMIT 1`,
+    )
+    .get(todoId) as (Raw & { todo_title: string }) | undefined
+  return row ? { ...parse(row), todo_title: row.todo_title } : undefined
 }
 
 export function findSuggestion(db: Db, id: string): SuggestionRow | undefined {

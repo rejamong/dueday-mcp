@@ -20,6 +20,25 @@ export const todoOutput = z.object({
   done_at: z.string().nullable(),
 })
 
+/** A goal the classifier thinks this todo really is; the client may offer to create it. */
+export const suggestionOutput = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: z.enum(['annual', 'short', 'long']),
+  period_end: z.string().nullable(),
+  tag: z.string(),
+  why: z.string(),
+  metric: z.object({
+    name: z.string(),
+    kind: z.enum(['count', 'value', 'boolean']),
+    direction: z.enum(['gte', 'lte', 'maintain']),
+    target_value: z.number(),
+    unit: z.string().nullable(),
+  }),
+})
+
+export const addedTodoOutput = todoOutput.extend({ suggestion: suggestionOutput.nullable() })
+
 export const metaOutput = z.object({ today: z.string(), total: z.number().int().optional() })
 
 export function envelope<T extends z.ZodType>(data: T) {

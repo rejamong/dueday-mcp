@@ -77,7 +77,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.all('/mcp', ...mcpGuard, async (c) => {
     await logMcpRequest(c)
-    const server = createMcpServer(deps.service, deps.goals)
+    const server = createMcpServer(deps.service, deps.goals, deps.enricher)
     const transport = new StreamableHTTPTransport()
     await server.connect(transport)
     const res = await transport.handleRequest(c)

@@ -36,6 +36,12 @@ export interface ProvidedFields {
 
 export interface EnrichQueue {
   enqueue(todoId: string, provided: ProvidedFields): void
+  waitFor(todoId: string, timeoutMs: number): Promise<void>
+}
+
+export interface AddOptions {
+  /** Wait up to this long for the classifier so the returned todo already carries tags/goal (MCP clients report it back). */
+  readonly awaitEnrichmentMs?: number
 }
 
 export interface TodoServiceDeps {
@@ -97,7 +103,7 @@ export class TodoService {
     return todayInSeoul(this.clock.now())
   }
 
-  async add(input: unknown, source: TodoSource = 'mcp'): Promise<Todo> {
+  async add(input: unknown, source: TodoSource = 'mcp', options: AddOptions = {}): Promise<Todo> {
     const data = parseOrThrow(addTodoSchema, input)
     const now = toSeoulIso(this.clock.now())
     const id = nextUlid(this.clock.now().getTime())
@@ -124,13 +130,16 @@ export class TodoService {
     })
     const todo = this.get(id)
     await this.syncBrain('created', todo)
-    this.enricher?.enqueue(id, {
+    if (!this.enricher) return todo
+    this.enricher.enqueue(id, {
       tags: tagNames.length > 0,
       lead_days: data.lead_days !== undefined,
       goal: data.goal !== undefined,
       due: data.due !== undefined,
     })
-    return todo
+    if (options.awaitEnrichmentMs === undefined) return todo
+    await this.enricher.waitFor(id, options.awaitEnrichmentMs)
+    return this.get(id)
   }
 
   /** Like get(), but returns undefined instead of throwing (for background work on possibly-deleted todos). */

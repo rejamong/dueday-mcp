@@ -4,11 +4,15 @@ import { z } from 'zod'
 import { NotFoundError, ValidationError } from '../errors.js'
 import { addTodoSchema, idSchema, listTodosSchema, updateTodoFields, upcomingSchema } from '../todos/schemas.js'
 import type { TodoService } from '../todos/service.js'
-import { envelope, tagSummaryOutput, todoOutput, upcomingOutput } from './output.js'
+import { addedTodoOutput, envelope, tagSummaryOutput, todoOutput, upcomingOutput } from './output.js'
 import { registerGoalTools } from './goal-tools.js'
 import type { GoalService } from '../goals/service.js'
+import type { Enricher } from '../enrich/service.js'
 
 export const SERVER_INFO = { name: 'dueday-mcp', version: '0.1.0' } as const
+
+/** How long add_todo waits for the classifier before answering with the todo as stored. */
+const ENRICH_WAIT_MS = 8000
 
 const DATE_HINT =
   '상대 날짜(이번주 금요일 등)는 응답의 meta.today(Asia/Seoul 기준 오늘)를 써서 호출 전에 YYYY-MM-DD로 바꿔 넘긴다.'
@@ -33,7 +37,7 @@ async function run(work: () => Promise<CallToolResult>): Promise<CallToolResult>
   }
 }
 
-export function createMcpServer(service: TodoService, goals?: GoalService): McpServer {
+export function createMcpServer(service: TodoService, goals?: GoalService, enricher?: Enricher): McpServer {
   const server = new McpServer(SERVER_INFO)
   if (goals) registerGoalTools(server, goals, ok, run)
 
@@ -41,11 +45,19 @@ export function createMcpServer(service: TodoService, goals?: GoalService): McpS
     'add_todo',
     {
       title: '할 일 추가',
-      description: `새 할 일을 등록한다. ${DATE_HINT} 기존 태그를 재사용하려면 먼저 list_tags를 본다. 할 일이 어떤 목표(list_goals)에 분명히 속하면 goal에 그 목표 태그를 넣고, 아니면 비워 일상으로 둔다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`,
+      description: enricher
+        ? `새 할 일을 등록한다. ${DATE_HINT} 서버가 비어 있는 태그·준비 기간(lead_days)·목표 연결을 자동으로 채워 응답에 돌려주므로, 사용자가 직접 말한 값만 넘기고 나머지는 비운다. 응답의 suggestion이 null이 아니면 이 항목이 목표에 가깝다는 뜻이니 "목표로 올릴까?"를 한 줄 제안하고, 승낙 시 add_goal(같은 tag) 후 update_todo(goal)로 연결한다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`
+        : `새 할 일을 등록한다. ${DATE_HINT} 기존 태그를 재사용하려면 먼저 list_tags를 본다. 할 일이 어떤 목표(list_goals)에 분명히 속하면 goal에 그 목표 태그를 넣고, 아니면 비워 일상으로 둔다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`,
       inputSchema: addTodoSchema,
-      outputSchema: envelope(todoOutput),
+      outputSchema: envelope(addedTodoOutput),
     },
-    (args) => run(async () => ok(await service.add(args, 'mcp'), service.today())),
+    (args) =>
+      run(async () => {
+        const todo = await service.add(args, 'mcp', enricher ? { awaitEnrichmentMs: ENRICH_WAIT_MS } : {})
+        const pending = enricher?.pendingSuggestionFor(todo.id)
+        const suggestion = pending ? { id: pending.id, ...pending.suggestion } : null
+        return ok({ ...todo, suggestion }, service.today())
+      }),
   )
 
   server.registerTool(

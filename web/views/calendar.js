@@ -2,6 +2,7 @@ import { createElement, escapeHtml } from '../utils.js'
 import { monthGrid, formatMonthTitle, toDateOnly } from '../dates.js'
 import { badgeVariant } from './todo-row.js'
 import { render as renderCalendarDay } from './calendar-day.js'
+import { renderCellAdd } from './calendar-quick-add.js'
 
 const WEEKDAY_HEADERS = ['월', '화', '수', '목', '금', '토', '일']
 const MAX_CHIPS = 3
@@ -58,10 +59,12 @@ function cellHtml(cell, state, dueMap, prepMap) {
   if (date === state.calendar.selectedDay) classes.push('cal-cell-selected')
 
   return `
-    <button type="button" class="${classes.join(' ')}" data-date="${date}" aria-label="${month}월 ${day}일">
-      <span class="cal-cell-day">${day}</span>
-      <div class="cal-cell-chips">${cellChipsHtml(date, dueMap, prepMap, state.today)}</div>
-    </button>
+    <div class="cal-cell-wrap" data-date="${date}">
+      <button type="button" class="${classes.join(' ')}" data-date="${date}" aria-label="${month}월 ${day}일">
+        <span class="cal-cell-day">${day}</span>
+        <div class="cal-cell-chips">${cellChipsHtml(date, dueMap, prepMap, state.today)}</div>
+      </button>
+    </div>
   `
 }
 
@@ -98,6 +101,14 @@ export function render(state, actions) {
   el.querySelector('.calendar-today-btn').addEventListener('click', () => actions.calendarGoToday())
   el.querySelectorAll('.cal-cell').forEach((btn) => {
     btn.addEventListener('click', () => actions.calendarSelectDay(btn.dataset.date))
+    btn.addEventListener('dblclick', (event) => {
+      if (event.target.closest('.cal-chip')) return
+      actions.calendarOpenQuickAdd(btn.dataset.date)
+    })
+  })
+
+  el.querySelectorAll('.cal-cell-wrap').forEach((wrap) => {
+    wrap.appendChild(renderCellAdd(wrap.dataset.date, state, actions))
   })
 
   el.appendChild(renderCalendarDay(state, actions))

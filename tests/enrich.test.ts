@@ -176,3 +176,41 @@ describe('Enricher races', () => {
     expect(listSuggestions(db)).toEqual([])
   })
 })
+
+describe('Enricher waiting and suggestion visibility', () => {
+  const promotion = { title: '달리기', kind: 'long' as const, period_end: null, tag: 'running', why: 'w', metric: { name: '회', kind: 'count' as const, direction: 'gte' as const, target_value: 10, unit: null } }
+
+  it('waitFor resolves once the todo has been classified, and add() can wait inline', async () => {
+    const { todos, enricher } = make({ classify: async () => output({ promote_to_goal: promotion }) })
+    const todo = await todos.add({ title: '달리기' }, 'mcp', { awaitEnrichmentMs: 2000 })
+    expect(todo.enrichment).toEqual({ tags: ['업무'], lead_days: 5 })
+    expect(enricher.pendingSuggestionFor(todo.id)?.suggestion.tag).toBe('running')
+    expect(enricher.pendingSuggestionFor('nope')).toBeUndefined()
+  })
+
+  it('waitFor gives up after the timeout and leaves the job running', async () => {
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const { todos, enricher } = make({ classify: async () => { await gate; return output() } })
+    const todo = await todos.add({ title: '느린 분류' }, 'mcp', { awaitEnrichmentMs: 20 })
+    expect(todo.enrichment).toBeNull()
+    release?.()
+    await enricher.flush()
+    expect(todos.get(todo.id).enrichment).toEqual({ tags: ['업무'], lead_days: 5 })
+  })
+
+  it('returns immediately when nothing is blank', async () => {
+    const { todos } = make({ classify: async () => { throw new Error('must not be called') } })
+    const todo = await todos.add({ title: 'x', tags: ['a'], lead_days: 1, due: '2026-09-20', goal: undefined }, 'mcp', { awaitEnrichmentMs: 2000 })
+    expect(todo.enrichment).toBeNull()
+  })
+
+  it('hides a suggestion once a goal with that tag exists (e.g. created via add_goal)', async () => {
+    const { todos, goals, enricher } = make({ classify: async () => output({ promote_to_goal: promotion }) })
+    const todo = await todos.add({ title: '달리기' }, 'mcp', { awaitEnrichmentMs: 2000 })
+    expect(enricher.listSuggestions()).toHaveLength(1)
+    await goals.add({ title: '달리기', kind: 'long', tag: 'running' })
+    expect(enricher.listSuggestions()).toEqual([])
+    expect(enricher.pendingSuggestionFor(todo.id)).toBeUndefined()
+  })
+})
