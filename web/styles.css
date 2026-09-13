@@ -255,13 +255,13 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .calendar-today-btn { white-space: nowrap; flex-shrink: 0; }
 .calendar-legend { font-family: var(--font-mono); font-size: 11px; color: var(--soft); }
 
-.calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: var(--sp-2); }
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-bottom: var(--sp-2); }
 .cal-weekday { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; color: var(--soft); text-align: center; padding: 4px 0; }
 .cal-weekday-sun { color: var(--danger); }
 
 .calendar-cells {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 1px;
   background: var(--rule);
   border: 1px solid var(--rule);
@@ -269,6 +269,7 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
   overflow: hidden;
 }
 .cal-cell {
+  min-width: 0;
   min-height: 124px;
   padding: var(--sp-2);
   background: var(--surface);
@@ -289,7 +290,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .cal-cell-today .cal-cell-day { color: var(--accent); font-weight: 700; }
 .cal-cell-selected { box-shadow: inset 0 0 0 2px var(--ink); }
 
-.cal-cell-chips { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-cell-chips { display: flex; flex-direction: column; gap: 3px; overflow: hidden; min-width: 0; }
+.cal-cell-chips > * { min-width: 0; max-width: 100%; }
 .cal-chip { font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-chip-overdue { color: var(--danger); background: var(--danger-tint); }
 .cal-chip-start_now { color: var(--accent); background: var(--accent-tint); }
