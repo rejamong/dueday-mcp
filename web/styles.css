@@ -450,17 +450,24 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 
 @media (max-width: 480px) {
   .tagline { display: none; }
+  /* Phones: no room for titles, so each todo becomes a solid full-width bar in its status colour. */
   .cal-chip {
     font-size: 0;
-    width: 8px;
-    height: 8px;
-    min-width: 8px;
+    display: block;
+    width: 100%;
+    height: 7px;
     padding: 0;
-    border-radius: 50%;
+    border: 0;
+    border-radius: 4px;
     overflow: hidden;
   }
-  .cal-cell-chips { flex-direction: row; flex-wrap: wrap; gap: 4px; }
-  .cal-chip-more { display: none; }
+  .cal-chip-overdue { background: var(--danger); }
+  .cal-chip-start_now { background: var(--accent); }
+  .cal-chip-later { background: var(--ink); opacity: .8; }
+  .cal-chip-done { background: var(--soft); opacity: .5; text-decoration: none; }
+  .cal-chip-prep { background: transparent; border: 1px dashed var(--muted); height: 6px; }
+  .cal-cell-chips { flex-direction: column; gap: 3px; }
+  .cal-chip-more { display: block; font-size: 10px; line-height: 1; }
 }
 
 @media (max-width: 480px) {
