@@ -32,6 +32,7 @@ function initialState() {
     checkinOpenGoalId: null,
     addGoalFormOpen: false,
     addGoalPresetKind: null,
+    goalStatusFilter: null,
     unlinkedTodos: null,
     pendingGoal: null,
     suggestions: [],

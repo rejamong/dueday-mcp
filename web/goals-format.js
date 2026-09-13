@@ -47,11 +47,31 @@ export function heroSummaryLine(annualGoals, today) {
   return `${year}년 목표 ${annualGoals.length}개 · 평균 달성 ${avgPercent}%${elapsedPart}`
 }
 
-/** `9 · 앞섬 2 · 순항 4 · 뒤처짐 2 · 달성 1` counts by status_label. */
-export function statusCountsLine(goals) {
+export const STATUS_ORDER = ['ahead', 'on_track', 'behind', 'done']
+const STATUS_WORD = { ahead: '앞섬', on_track: '순항', behind: '뒤처짐', done: '달성' }
+
+/** `{ ahead, on_track, behind, done }` counts by status_label. */
+export function statusCounts(goals) {
   const counts = { ahead: 0, on_track: 0, behind: 0, done: 0 }
   for (const g of goals) if (g.status_label in counts) counts[g.status_label] += 1
-  return `${goals.length} · 앞섬 ${counts.ahead} · 순항 ${counts.on_track} · 뒤처짐 ${counts.behind} · 달성 ${counts.done}`
+  return counts
+}
+
+/** `[{ key: 'ahead', label: '앞섬 2', count: 2 }, …]` in display order, for the clickable status filter. */
+export function statusCountItems(goals) {
+  const counts = statusCounts(goals)
+  return STATUS_ORDER.map((key) => ({ key, label: `${STATUS_WORD[key]} ${counts[key]}`, count: counts[key] }))
+}
+
+/** `9 · 앞섬 2 · 순항 4 · 뒤처짐 2 · 달성 1` counts by status_label. */
+export function statusCountsLine(goals) {
+  return `${goals.length} · ${statusCountItems(goals).map((i) => i.label).join(' · ')}`
+}
+
+/** Goals matching a status filter; null/unknown filter returns all. */
+export function filterGoalsByStatus(goals, statusFilter) {
+  if (!statusFilter) return goals
+  return goals.filter((g) => g.status_label === statusFilter)
 }
 
 const STATUS_PILL = {

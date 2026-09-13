@@ -92,7 +92,11 @@
 .goals-section-empty-add { display: block; width: 100%; cursor: pointer; font: inherit; background: transparent; }
 .goals-section-empty-add:hover, .goals-section-empty-add:focus-visible { border-color: var(--accent); color: var(--ink); }
 .goals-section-heading { font-size: 18px; font-weight: 700; margin: 0; }
-.goals-section-count { font-family: var(--font-mono); font-size: 13px; color: var(--soft); }
+.goals-section-count { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 13px; color: var(--soft); }
+.goals-status-total { margin-right: 2px; }
+.goals-status-chip { font: inherit; color: var(--soft); background: transparent; border: 1px solid transparent; border-radius: var(--radius-pill); padding: 2px 8px; cursor: pointer; }
+.goals-status-chip:hover { border-color: var(--rule); color: var(--muted); }
+.goals-status-chip.is-active { background: var(--ink); color: #fff; border-color: var(--ink); }
 .goals-section-empty { padding: var(--sp-4); color: var(--soft); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md); }
 .goals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 

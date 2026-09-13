@@ -313,6 +313,16 @@ test('goals page: life goal, annual goal metric tracking, check-in, and todo lin
     await expect(goalCard.locator('.goal-detail-todos').getByText(LINKED_TODO_TITLE)).toBeVisible()
   })
 
+  await test.step('status chips filter the annual grid and toggle off', async () => {
+    const chip = page.locator('.goals-status-chip[data-status="done"]')
+    await chip.click()
+    await expect(chip).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.goals-section[data-kind="annual"] .goal-card, .goals-section[data-kind="annual"] .goals-section-empty').first()).toBeVisible()
+    await chip.click()
+    await expect(chip).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.locator('.goal-card', { hasText: '독서' }).first()).toBeVisible()
+  })
+
   await test.step('completing from the panel moves the todo to 완료 and the circle reopens it', async () => {
     const goalCard = page.locator('.goal-card', { hasText: '독서' }).first()
     const openRow = goalCard.locator('.goal-detail-todos').first().locator('.todo-row', { hasText: LINKED_TODO_TITLE })
