@@ -416,6 +416,72 @@ test('calendar quick-add: + on a day cell adds a todo inline without changing mo
   })
 })
 
+test('규모(size): quick-add derives 준비 date, row editor updates it, and the size filter narrows the list', async ({ page }) => {
+  const TITLE = `E2E 규모 테스트 ${Date.now()}`
+  let today = ''
+  let row: ReturnType<typeof page.locator>
+  let todoId = ''
+
+  const allSection = page.locator('.section').filter({ hasText: '전체 목록' })
+
+  await test.step('log in via the REST API (never type the password into the login form)', async () => {
+    const res = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })
+    expect(res.ok()).toBe(true)
+  })
+
+  await test.step('open the app and read today', async () => {
+    await page.goto('/')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+  })
+
+  // size 3 (일주일) derives lead_days=5 server-side when lead_days is left untouched — see src/todos/size.ts.
+  const dueDate = addDaysUtc(today, 20)
+  const expectedPrep = addDaysUtc(dueDate, -5)
+  const [, prepMonth, prepDay] = expectedPrep.split('-').map(Number)
+  const expectedPrepShort = `준비 ${prepMonth}/${prepDay}`
+
+  await test.step('quick-add with size 3 and no lead_days shows the 규모 chip and the derived 준비 date', async () => {
+    await page.fill('#qa-title', TITLE)
+    await page.fill('#qa-due', dueDate)
+    await page.selectOption('#qa-size', '3')
+    await page.click('.qa-submit')
+    await expect(page.locator('#toast')).toContainText('추가됨')
+
+    row = allSection.locator('.todo-row').filter({ hasText: TITLE })
+    await expect(row).toBeVisible()
+    todoId = (await row.getAttribute('data-id')) ?? ''
+    expect(todoId).not.toBe('')
+    row = page.locator(`.todo-row[data-id="${todoId}"]`)
+
+    await expect(row.locator('.chip-size')).toHaveText('규모 3 · 일주일')
+    await expect(row.locator('.row-prep')).toContainText(expectedPrepShort)
+  })
+
+  await test.step('editing to size 1 via the row editor updates the chip', async () => {
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="edit"]').click()
+    await row.locator('.editor-size').selectOption('1')
+    await row.locator('.editor-save').click()
+
+    await expect(page.locator('#toast')).toContainText('저장됨')
+    await expect(row.locator('.chip-size')).toHaveText('규모 1 · 반나절')
+  })
+
+  await test.step('the 규모 filter narrows 전체 목록 to just this row', async () => {
+    await allSection.locator('.chip[data-size="1"]').click()
+    await expect(allSection.locator('.todo-row')).toHaveCount(1)
+    await expect(row).toBeVisible()
+  })
+
+  await test.step('clean up via the API', async () => {
+    const deleteRes = await page.request.delete(`/api/todos/${todoId}`)
+    expect(deleteRes.ok()).toBe(true)
+  })
+})
+
 test('mobile: quick-add collapses behind a button and stat cards become one line', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   const login = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })

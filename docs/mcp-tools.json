@@ -22,7 +22,8 @@
       "title": "string",
       "note": "string | null",
       "due_at": "string (RFC3339, Asia/Seoul) | null",
-      "lead_days": "int >= 0 (default 3)",
+      "lead_days": "int >= 0 (default 3; size가 있으면 1→1, 2→2, 3→5, 4→10, 5→14)",
+      "size": "int 1..5 | null — 규모(예상 소요): 1 하루 미만 / 2 1~2일 / 3 3~7일 / 4 2주 / 5 2주 이상. 비우면 같은 태그의 이력(2건 이상)이나 자동 분류로 추정",
       "prep_start": "string (YYYY-MM-DD) | null — derived: due_at - lead_days",
       "status": "open | done | cancelled",
       "tags": "string[]",
@@ -83,6 +84,13 @@
           "max": 60,
           "default": 3,
           "required": false
+        },
+        "size": {
+          "type": "int",
+          "min": 1,
+          "max": 5,
+          "required": false,
+          "note": "규모. 주면 lead_days가 비어 있을 때 규모에서 정해짐"
         },
         "note": {
           "type": "string",
@@ -152,6 +160,13 @@
           "type": "string",
           "required": false,
           "note": "목표 태그 또는 none(일상만)"
+        },
+        "size": {
+          "type": "int",
+          "min": 1,
+          "max": 5,
+          "required": false,
+          "note": "이 규모인 항목만"
         }
       },
       "output": "Todo[] with meta.total"
@@ -168,6 +183,7 @@
         "due": "string | null ? (null이면 마감 제거)",
         "tags": "string[]? (전체 교체)",
         "lead_days": "int?",
+        "size": "int 1..5 | null ? (null이면 제거)",
         "note": "string | null ?",
         "brain_ref": "string | null ?",
         "goal": "string | null ? (null이면 목표 연결 해제)"

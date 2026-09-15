@@ -79,8 +79,8 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 
 | 도구 | 역할 |
 |---|---|
-| `add_todo` | 등록. `title`, `due?`, `tags?`, `lead_days?`(기본 3), `note?`, `brain_ref?` |
-| `list_todos` | 조회. `status`, `tag`, `due_before`, `due_after`, `q`, `limit`, `offset` |
+| `add_todo` | 등록. `title`, `due?`, `tags?`, `size?`(규모 1~5), `lead_days?`(기본 3, 규모가 있으면 규모에서), `note?`, `brain_ref?`, `goal?` |
+| `list_todos` | 조회. `status`, `tag`, `goal`, `size`, `due_before`, `due_after`, `q`, `limit`, `offset` |
 | `update_todo` | 부분 수정. 바꿀 필드만 최상위에. `due: null`이면 마감 제거 |
 | `complete_todo` | 완료 / `reopen: true`로 되돌리기 |
 | `cancel_todo` | 취소(목록·알림에서 제외, 기록 유지) / `reopen: true`로 되살리기 |
@@ -153,12 +153,16 @@ pnpm typecheck && pnpm build
 
 구조: `src/todos`(도메인·저장소·날짜), `src/mcp`(MCP 어댑터), `src/api`(REST), `src/auth`(Bearer·요청 제한), `src/oauth`(OAuth 2.1 서버), `src/brain`(gbrain 동기화), `src/db`(마이그레이션).
 
+## 규모 (size)
+
+할 일마다 예상 소요를 1~5 규모로 둘 수 있습니다: 1 하루 미만 / 2 1~2일 / 3 3~7일 / 4 2주 / 5 2주 이상. 규모가 있고 `lead_days`를 따로 주지 않으면 준비 시작이 규모에서 정해집니다(1→1일, 2→2일, 3→5일, 4→10일, 5→14일 전). 규모를 비우면 같은 태그의 이전 항목 2건 이상이 같은 규모를 갖고 있을 때 그 값을 물려받고(반복되는 일상 업무), 그렇지 않으면 자동 분류가 추정합니다. 직접 정한 규모는 덮어쓰지 않습니다.
+
 ## 자동 분류 (선택, Claude API)
 
 `ANTHROPIC_API_KEY`를 설정하면 어느 경로(웹·REST·MCP)로 들어오든 새 할 일을 저장 직후 백그라운드에서 한 번 분류합니다.
 
 - **비어 있는 필드만 채웁니다.** 사용자가 준 `tags`, `lead_days`, `due`, `goal`은 절대 덮어쓰지 않습니다.
-- 태그(기존 태그 우선)·준비 기간(`lead_days`)·제목 속 날짜(`due`)는 바로 적용하고, 목표 연결은 확신이 높을 때만 적용합니다.
+- 태그(기존 태그 우선)·규모(`size`)·준비 기간(`lead_days`, 보통 규모에서 유도)·제목 속 날짜(`due`)는 바로 적용하고, 목표 연결은 확신이 높을 때만 적용합니다.
 - "매주 두 번 달리기"처럼 목표에 가까운 항목은 **목표 제안**으로만 남깁니다. `GET /api/suggestions`에서 보고 `POST /api/suggestions/:id/accept`(인생 목표 아래 목표 생성 + 할 일 연결) 또는 `/dismiss`로 처리합니다. 웹 UI의 목표 페이지에도 `AI 제안` 카드로 나옵니다.
 - 자동으로 채운 필드는 `todo.enrichment`에 기록되고 웹에서 `AI` 칩으로 표시됩니다. 사용자가 직접 수정하면 표시가 사라집니다.
 - 실패하면 할 일은 그대로 두고 `enrichment_log`에 남깁니다. 하루 호출 상한(`ENRICH_DAILY_CAP`)을 넘으면 `skipped`로 기록합니다.

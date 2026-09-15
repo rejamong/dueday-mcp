@@ -6,7 +6,9 @@ import { disabledBrainSync, type BrainSync, type BrainSyncEvent } from '../brain
 import { insertSyncLog } from '../brain/log.js'
 import { ensureTags, listTagsWithOpenCount, normalizeTagNames, replaceTodoTags } from '../tags/repository.js'
 import { parseDue, todayInSeoul, toSeoulIso } from './dates.js'
-import { deleteTodo, findTodo, insertTodo, listOpenTodos, listTodos, updateTodo, type TodoPage, type TodoPatch } from './repository.js'
+import { deleteTodo, findTodo, insertTodo, listOpenTodos, listTodos, updateTodo, type TodoPage, type TodoPatch,
+  inferSizeFromTags,
+} from './repository.js'
 import {
   DEFAULT_LEAD_DAYS,
   addTodoSchema,
@@ -18,6 +20,7 @@ import {
 } from './schemas.js'
 import { groupUpcoming } from './upcoming.js'
 import type { EnrichmentApplied, TagSummary, Todo, TodoSource, UpcomingResult } from './types.js'
+import { isSize, leadDaysForSize } from './size.js'
 
 export interface Clock {
   now(): Date
@@ -32,6 +35,7 @@ export interface ProvidedFields {
   readonly lead_days: boolean
   readonly goal: boolean
   readonly due: boolean
+  readonly size: boolean
 }
 
 export interface EnrichQueue {
@@ -59,7 +63,7 @@ const nextUlid = monotonicFactory()
 
 function sameContent(a: Todo, b: Todo): boolean {
   return a.title === b.title && a.note === b.note && a.due_at === b.due_at && a.lead_days === b.lead_days
-    && a.goal_id === b.goal_id && a.tags.join(',') === b.tags.join(',')
+    && a.size === b.size && a.goal_id === b.goal_id && a.tags.join(',') === b.tags.join(',')
 }
 
 function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
@@ -67,6 +71,7 @@ function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
   if (patch.title !== undefined) out.title = patch.title
   if (patch.due !== undefined) out.due_at = patch.due === null ? null : parseDue(patch.due)
   if (patch.lead_days !== undefined) out.lead_days = patch.lead_days
+  if (patch.size !== undefined) out.size = patch.size
   if (patch.note !== undefined) out.note = patch.note
   if (patch.brain_ref !== undefined) out.brain_ref = patch.brain_ref
   return out as TodoPatch
@@ -109,18 +114,26 @@ export class TodoService {
     const id = nextUlid(this.clock.now().getTime())
     const tagNames = normalizeTagNames(data.tags)
     const goalId = this.goalIdOf(data.goal) ?? null
+    // Routine work: a tag whose earlier todos share a size gives this one the same size (and lead days) up front.
+    const inferredSize = data.size === undefined ? inferSizeFromTags(this.db, tagNames) : null
+    const size = data.size ?? inferredSize
+    const leadDays = data.lead_days ?? (isSize(size) ? leadDaysForSize(size) : DEFAULT_LEAD_DAYS)
+    const inferred: EnrichmentApplied | null = inferredSize === null
+      ? null
+      : { size: inferredSize, ...(data.lead_days === undefined ? { lead_days: leadDays } : {}) }
     this.transaction(() => {
       insertTodo(this.db, {
         id,
         title: data.title,
         note: data.note ?? null,
         due_at: data.due === undefined ? null : parseDue(data.due),
-        lead_days: data.lead_days ?? DEFAULT_LEAD_DAYS,
+        lead_days: leadDays,
         status: 'open',
         brain_ref: data.brain_ref ?? null,
         goal_id: goalId,
-        enrichment: null,
-        enriched_at: null,
+        size,
+        enrichment: inferred ? JSON.stringify(inferred) : null,
+        enriched_at: inferred ? now : null,
         source,
         created_at: now,
         updated_at: now,
@@ -133,9 +146,10 @@ export class TodoService {
     if (!this.enricher) return todo
     this.enricher.enqueue(id, {
       tags: tagNames.length > 0,
-      lead_days: data.lead_days !== undefined,
+      lead_days: data.lead_days !== undefined || inferredSize !== null,
       goal: data.goal !== undefined,
       due: data.due !== undefined,
+      size: size !== null,
     })
     if (options.awaitEnrichmentMs === undefined) return todo
     await this.enricher.waitFor(id, options.awaitEnrichmentMs)
@@ -161,8 +175,9 @@ export class TodoService {
       updateTodo(this.db, existing.id, {
         ...(applied.lead_days !== undefined ? { lead_days: applied.lead_days } : {}),
         ...(applied.due !== undefined ? { due_at: parseDue(applied.due) } : {}),
+        ...(applied.size !== undefined ? { size: applied.size } : {}),
         ...(goalId !== undefined ? { goal_id: goalId } : {}),
-        enrichment: JSON.stringify(applied),
+        enrichment: JSON.stringify({ ...existing.enrichment, ...applied }),
         enriched_at: now,
         updated_at: now,
       })

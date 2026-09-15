@@ -164,6 +164,12 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE goals_v5 RENAME TO goals;
     `,
   },
+  {
+    version: 6,
+    sql: `
+      ALTER TABLE todos ADD COLUMN size INTEGER CHECK (size BETWEEN 1 AND 5);
+    `,
+  },
 ]
 
 export function runMigrations(db: DatabaseSync): void {

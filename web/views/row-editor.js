@@ -1,4 +1,5 @@
 import { escapeHtml, createElement, showToast } from '../utils.js'
+import { SIZES, SIZE_LABELS } from '../size.js'
 
 function toDateOnly(value) {
   return value ? String(value).slice(0, 10) : ''
@@ -26,6 +27,18 @@ function goalSelectHtml(todo, goals) {
   `
 }
 
+/** 규모 select options: empty (none) + 1..5, prefilled from the todo's current size. */
+function sizeSelectHtml(todo) {
+  const options = SIZES.map((s) => `<option value="${s}" ${todo.size === s ? 'selected' : ''}>${s} · ${escapeHtml(SIZE_LABELS[s])}</option>`).join('')
+  return `
+    <label class="visually-hidden" for="editor-size">규모</label>
+    <select id="editor-size" class="editor-size" title="규모(예상 소요)">
+      <option value="" ${todo.size ? '' : 'selected'}>규모</option>
+      ${options}
+    </select>
+  `
+}
+
 /** Diffs the editor fields against the original todo, returning only the fields that changed. */
 function buildPatch(todo, fields) {
   const patch = {}
@@ -35,6 +48,7 @@ function buildPatch(todo, fields) {
   const currentTags = (todo.tags || []).join(', ')
   if (fields.tagsRaw !== currentTags) patch.tags = parseTags(fields.tagsRaw)
   if (fields.goal !== (todo.goal_tag || '')) patch.goal = fields.goal === '' ? null : fields.goal
+  if (fields.size !== (todo.size ?? null)) patch.size = fields.size
   return patch
 }
 
@@ -45,6 +59,7 @@ function readFields(todo, refs) {
     leadDays: refs.lead.value === '' ? todo.lead_days : Number(refs.lead.value),
     tagsRaw: refs.tags.value,
     goal: refs.goal ? refs.goal.value : todo.goal_tag || '',
+    size: refs.size && refs.size.value !== '' ? Number(refs.size.value) : null,
   }
 }
 
@@ -66,6 +81,7 @@ export function render(todo, state, actions) {
             <input class="qa-lead editor-lead" type="number" min="0" max="60" aria-label="준비 시작 리드타임(일)" value="${todo.lead_days}" />
             <span>일 전</span>
           </label>
+          ${sizeSelectHtml(todo)}
           <label class="visually-hidden" for="editor-tags">태그</label>
           <input id="editor-tags" class="editor-tags" type="text" aria-label="태그" placeholder="태그 (쉼표로 구분)" value="${escapeHtml(tagsValue)}" />
           ${goalSelectHtml(todo, state.goals)}
@@ -84,8 +100,9 @@ export function render(todo, state, actions) {
     lead: el.querySelector('.editor-lead'),
     tags: el.querySelector('.editor-tags'),
     goal: el.querySelector('.editor-goal'),
+    size: el.querySelector('.editor-size'),
   }
-  const controls = [refs.title, refs.due, refs.lead, refs.tags, refs.goal, el.querySelector('.editor-close'), el.querySelector('.editor-save')]
+  const controls = [refs.title, refs.due, refs.lead, refs.size, refs.tags, refs.goal, el.querySelector('.editor-close'), el.querySelector('.editor-save')]
 
   function setDisabled(disabled) {
     controls.forEach((node) => (node.disabled = disabled))

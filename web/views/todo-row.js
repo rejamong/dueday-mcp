@@ -3,6 +3,7 @@ import { ddayLabel, prepLabel, monthDay, dayDiff } from '../dates.js'
 import { renderRowMenu } from './row-menu.js'
 import { render as renderEditor } from './row-editor.js'
 import { render as renderDeleteConfirm } from './row-delete-confirm.js'
+import { sizeLabel, SIZE_DESCRIPTIONS } from '../size.js'
 
 /** Which badge variant a todo falls into, per the "지금 준비 시작"/"7일 내" rules. */
 export function badgeVariant(today, todo) {
@@ -31,6 +32,7 @@ function goalChipHtml(goalTag) {
 const ENRICHMENT_TOOLTIP_PARTS = [
   ['tags', (v) => (Array.isArray(v) && v.length > 0 ? `태그 ${v.join('·')}` : null)],
   ['goal', (v) => (v ? `목표 ${v}` : null)],
+  ['size', (v) => (v !== null && v !== undefined ? `규모 ${v}` : null)],
   ['lead_days', (v) => (v !== null && v !== undefined ? `준비 ${v}일` : null)],
   ['due', (v) => (v ? `마감 ${v}` : null)],
 ]
@@ -47,8 +49,16 @@ function aiChipHtml(enrichment) {
   return `<span class="chip-ai" title="${escapeHtml(enrichmentTooltip(enrichment))}">AI</span>`
 }
 
-function tagChips(tags, goalTag, enrichment) {
-  const chips = (tags || []).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('') + goalChipHtml(goalTag) + aiChipHtml(enrichment)
+/** Small muted "규모 3 · 일주일" chip shown when the todo has a 규모 (size) set. */
+function sizeChipHtml(size) {
+  const label = sizeLabel(size)
+  if (!label) return ''
+  return `<span class="chip-size" title="${escapeHtml(SIZE_DESCRIPTIONS[size])}">규모 ${size} · ${escapeHtml(label)}</span>`
+}
+
+function tagChips(tags, goalTag, enrichment, size) {
+  const chips =
+    (tags || []).map((t) => `<span class="tag-chip">${escapeHtml(t)}</span>`).join('') + goalChipHtml(goalTag) + aiChipHtml(enrichment) + sizeChipHtml(size)
   if (!chips) return ''
   return `<div class="row-tags">${chips}</div>`
 }
@@ -107,7 +117,7 @@ function renderNormalRow(todo, state, actions, rowKey) {
     <div class="todo-row" data-id="${escapeHtml(todo.id)}" data-row-key="${escapeHtml(rowKey)}">
       <div class="row-text">
         <div class="row-title ${isDone ? 'is-done' : ''} ${isCancelled ? 'is-cancelled' : ''}">${escapeHtml(todo.title)}</div>
-        ${tagChips(todo.tags, todo.goal_tag, todo.enrichment)}
+        ${tagChips(todo.tags, todo.goal_tag, todo.enrichment, todo.size)}
       </div>
       ${prep ? `<span class="row-prep">${escapeHtml(prep)}</span>` : '<span class="row-prep row-prep-empty"></span>'}
       <span class="due-badge badge-${variant}">${escapeHtml(badgeText(state.today, todo, variant))}</span>

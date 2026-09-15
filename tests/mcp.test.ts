@@ -148,7 +148,7 @@ describe('MCP add_todo with server-side classification', () => {
   it('waits for the classification and returns the filled todo plus a goal suggestion', async () => {
     const client = await connectedClient({
       classify: async () => ({
-        tags: ['건강'], goal: null, goal_confidence: 'low', lead_days: 1, due: null, reason: 'r',
+        tags: ['건강'], goal: null, goal_confidence: 'low', lead_days: 1, due: null, size: null, reason: 'r',
         promote_to_goal: { title: '매주 달리기', kind: 'short', period_end: '2026-12-31', tag: 'running', why: '건강', metric: { name: '달린 횟수', kind: 'count', direction: 'gte', target_value: 30, unit: '회' } },
       }),
     })

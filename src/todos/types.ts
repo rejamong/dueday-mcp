@@ -10,6 +10,8 @@ export interface TodoRow {
   readonly status: TodoStatus
   readonly brain_ref: string | null
   readonly goal_id: string | null
+  /** 규모 1..5 (null = not estimated). */
+  readonly size: number | null
   /** JSON of fields filled by the classifier; cleared on manual edit. */
   readonly enrichment: string | null
   readonly enriched_at: string | null
@@ -24,6 +26,7 @@ export interface EnrichmentApplied {
   readonly goal?: string
   readonly lead_days?: number
   readonly due?: string
+  readonly size?: number
 }
 
 export interface Todo extends Omit<TodoRow, 'enrichment'> {

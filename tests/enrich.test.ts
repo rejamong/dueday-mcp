@@ -10,7 +10,7 @@ const fixedNow = new Date('2026-09-13T01:00:00Z')
 
 function output(overrides: Partial<EnrichmentOutput> = {}): EnrichmentOutput {
   return {
-    tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: null, promote_to_goal: null, reason: 'test', ...overrides,
+    tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: null, size: null, promote_to_goal: null, reason: 'test', ...overrides,
   }
 }
 
@@ -47,7 +47,7 @@ describe('Enricher', () => {
     expect(todo?.lead_days).toBe(5)
     expect(todo?.enrichment).toEqual({ lead_days: 5 })
     expect(todo?.enriched_at).toBe('2026-09-13T10:00:00+09:00')
-    expect(calls[0]?.provided).toEqual({ tags: true, lead_days: false, goal: false, due: false })
+    expect(calls[0]?.provided).toEqual({ tags: true, lead_days: false, goal: false, due: false, size: false })
     const log = listEnrichmentLog(db, todo?.id ?? '')
     expect(log[0]?.status).toBe('ok')
   })
@@ -137,7 +137,7 @@ describe('Enricher races', () => {
     const client: EnrichClient = {
       classify: async () => {
         await gate
-        return { tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: '2026-09-20', promote_to_goal: null, reason: 'r' }
+        return { tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: '2026-09-20', size: null, promote_to_goal: null, reason: 'r' }
       },
     }
     const { todos, enricher, db } = make(client)

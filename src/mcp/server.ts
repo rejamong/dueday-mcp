@@ -46,7 +46,7 @@ export function createMcpServer(service: TodoService, goals?: GoalService, enric
     {
       title: '할 일 추가',
       description: enricher
-        ? `새 할 일을 등록한다. ${DATE_HINT} 서버가 비어 있는 태그·준비 기간(lead_days)·목표 연결을 자동으로 채워 응답에 돌려주므로, 사용자가 직접 말한 값만 넘기고 나머지는 비운다. 응답의 suggestion이 null이 아니면 이 항목이 목표에 가깝다는 뜻이니 "목표로 올릴까?"를 한 줄 제안하고, 승낙 시 add_goal(같은 tag) 후 update_todo(goal)로 연결한다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`
+        ? `새 할 일을 등록한다. ${DATE_HINT} 서버가 비어 있는 태그·규모(size 1~5)·준비 기간(lead_days, 보통 규모에서 유도)·목표 연결을 자동으로 채워 응답에 돌려주므로, 사용자가 직접 말한 값만 넘기고 나머지는 비운다. "금방 끝나"→size 1, "이틀쯤"→2, "일주일 걸려"→3, "2주"→4, "큰 건"→5. 응답의 suggestion이 null이 아니면 이 항목이 목표에 가깝다는 뜻이니 "목표로 올릴까?"를 한 줄 제안하고, 승낙 시 add_goal(같은 tag) 후 update_todo(goal)로 연결한다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`
         : `새 할 일을 등록한다. ${DATE_HINT} 기존 태그를 재사용하려면 먼저 list_tags를 본다. 할 일이 어떤 목표(list_goals)에 분명히 속하면 goal에 그 목표 태그를 넣고, 아니면 비워 일상으로 둔다. brain_ref를 주면 gbrain 프로젝트 허브에 동기화된다.`,
       inputSchema: addTodoSchema,
       outputSchema: envelope(addedTodoOutput),
@@ -79,7 +79,7 @@ export function createMcpServer(service: TodoService, goals?: GoalService, enric
     'update_todo',
     {
       title: '할 일 수정',
-      description: `id로 지정한 할 일의 제목, 마감(due), 태그(전체 교체), 준비 기간(lead_days), 메모, brain_ref를 부분 수정한다. 바꿀 필드만 넘긴다. due에 null을 주면 마감을 제거한다. 마감 미루기에 사용. ${DATE_HINT}`,
+      description: `id로 지정한 할 일의 제목, 마감(due), 태그(전체 교체), 규모(size 1~5, null이면 제거), 준비 기간(lead_days), 메모, brain_ref, 목표(goal)를 부분 수정한다. 바꿀 필드만 넘긴다. due에 null을 주면 마감을 제거한다. 마감 미루기에 사용. ${DATE_HINT}`,
       inputSchema: z.object({ id: idSchema, ...updateTodoFields.shape }),
       outputSchema: envelope(todoOutput),
     },

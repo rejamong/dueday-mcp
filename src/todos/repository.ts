@@ -39,8 +39,8 @@ export type GoalFilter = string | null | undefined
 
 export function insertTodo(db: Db, row: TodoRow): void {
   db.prepare(
-    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, enrichment, enriched_at, source, created_at, updated_at, done_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, size, enrichment, enriched_at, source, created_at, updated_at, done_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     row.id,
     row.title,
@@ -50,6 +50,7 @@ export function insertTodo(db: Db, row: TodoRow): void {
     row.status,
     row.brain_ref,
     row.goal_id,
+    row.size,
     row.enrichment,
     row.enriched_at,
     row.source,
@@ -98,6 +99,10 @@ function buildWhere(filter: ListTodosInput, goal: GoalFilter): WhereClause {
     const like = `%${filter.q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
     params.push(like, like)
   }
+  if (filter.size !== undefined) {
+    clauses.push('t.size = ?')
+    params.push(filter.size)
+  }
   return { sql: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '', params }
 }
 
@@ -136,7 +141,7 @@ export function listDoneTodosForGoal(db: Db, goalId: string, limit: number): Tod
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>
 
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
-  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'enrichment', 'enriched_at', 'updated_at', 'done_at',
+  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'size', 'enrichment', 'enriched_at', 'updated_at', 'done_at',
 ])
 
 export function updateTodo(db: Db, id: string, patch: TodoPatch): void {
@@ -151,4 +156,26 @@ export function updateTodo(db: Db, id: string, patch: TodoPatch): void {
 export function deleteTodo(db: Db, id: string): boolean {
   const result = db.prepare('DELETE FROM todos WHERE id = ?').run(id)
   return Number(result.changes) > 0
+}
+
+/**
+ * Most common size among recent todos sharing any of `tagNames` (open or done, not cancelled).
+ * Returns null unless at least `minSamples` such todos have a size — routine work gets a default, one-offs do not.
+ */
+export function inferSizeFromTags(db: Db, tagNames: readonly string[], minSamples = 2, recent = 50): number | null {
+  if (tagNames.length === 0) return null
+  const placeholders = tagNames.map(() => '?').join(', ')
+  const rows = db
+    .prepare(
+      `SELECT size FROM (
+         SELECT DISTINCT t.id, t.size FROM todos t
+           JOIN todo_tags tt ON tt.todo_id = t.id JOIN tags g ON g.id = tt.tag_id
+          WHERE g.name IN (${placeholders}) AND t.size IS NOT NULL AND t.status != 'cancelled'
+          ORDER BY t.id DESC LIMIT ?)`,
+    )
+    .all(...tagNames, recent) as Array<{ size: number }>
+  if (rows.length < minSamples) return null
+  const counts = new Map<number, number>()
+  for (const r of rows) counts.set(r.size, (counts.get(r.size) ?? 0) + 1)
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0] ?? null
 }

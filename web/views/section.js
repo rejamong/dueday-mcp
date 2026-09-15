@@ -33,8 +33,9 @@ function buildSectionBlock({ heading, countHtml = '', rowElements = null, emptyT
   return section
 }
 
-function matchesTagAndQuery(todo, filter) {
+function matchesFilters(todo, filter) {
   if (filter.tag && !(todo.tags || []).includes(filter.tag)) return false
+  if (filter.size !== null && filter.size !== undefined && todo.size !== filter.size) return false
   if (filter.q) {
     const q = filter.q.toLowerCase()
     const haystack = `${todo.title} ${todo.note ?? ''}`.toLowerCase()
@@ -90,7 +91,7 @@ function allListSection(state, actions) {
     })
   }
 
-  const base = state.todos.filter((t) => matchesTagAndQuery(t, state.filter))
+  const base = state.todos.filter((t) => matchesFilters(t, state.filter))
   const openCount = base.filter((t) => t.status === 'open').length
   const doneCount = base.filter((t) => t.status === 'done').length
   const cancelledCount = base.filter((t) => t.status === 'cancelled').length

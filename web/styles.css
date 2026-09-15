@@ -103,7 +103,7 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .qa-lead-wrap:focus-within { border-color: var(--accent); }
 .qa-lead-wrap .qa-lead { width: 48px; border: 0; background: transparent; padding: 9px 0; text-align: center; font-family: var(--font-mono); }
 .qa-lead-wrap .qa-lead:focus { outline: none; }
-.qa-goal, .editor-goal {
+.qa-goal, .editor-goal, .qa-size, .editor-size {
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
@@ -157,6 +157,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .filters-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .chip { border: 1px solid var(--rule); background: var(--surface); border-radius: var(--radius-pill); padding: 4px 12px; cursor: pointer; color: var(--muted); }
 .chip-selected { background: var(--ink); color: #fff; border-color: var(--ink); }
+.filters-size { display: flex; align-items: center; gap: var(--sp-2); }
+.filters-size-label { font-size: 13px; color: var(--soft); white-space: nowrap; }
 .filters-spacer { flex: 1; }
 .filters-status { display: flex; gap: var(--sp-2); }
 .filters-search { width: 220px; border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 6px 10px; background: var(--surface); }
@@ -196,6 +198,20 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
   font-weight: 700;
   letter-spacing: .04em;
   color: var(--soft);
+  cursor: default;
+}
+.chip-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  color: var(--muted);
   cursor: default;
 }
 .row-prep { font-family: var(--font-mono); font-size: 12px; color: var(--soft); white-space: nowrap; }
@@ -439,7 +455,7 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
   .row-prep { display: none; }
   .due-badge { order: 3; flex-basis: 100%; margin-left: 36px; width: fit-content; }
   .row-menu { max-width: calc(100vw - 48px); }
-  .editor-due, .editor-tags, .editor-goal { width: 100%; }
+  .editor-due, .editor-tags, .editor-goal, .editor-size { width: 100%; }
   .editor-lead-wrap { width: auto; }
   .qa-goal { flex-basis: 100%; max-width: none; }
   .cal-cell, .cal-cell-wrap { min-height: 96px; }

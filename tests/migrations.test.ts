@@ -37,3 +37,14 @@ describe('migrations', () => {
     expect(db.prepare("SELECT goal_id FROM todos WHERE id = 't1'").get()).toEqual({ goal_id: null })
   })
 })
+
+describe('migration v6 (todos.size)', () => {
+  it('adds a nullable size column constrained to 1..5', () => {
+    const db = new DatabaseSync(':memory:')
+    db.exec('PRAGMA foreign_keys = ON')
+    runMigrations(db)
+    db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t1', 'x', 3, 'open', 'mcp', 't', 't', 3)").run()
+    expect(() => db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t2', 'x', 3, 'open', 'mcp', 't', 't', 6)").run()).toThrow()
+    expect(db.prepare("SELECT size FROM todos WHERE id = 't1'").get()).toEqual({ size: 3 })
+  })
+})

@@ -8,7 +8,7 @@ export type { EnrichmentOutput } from './schema.js'
 export interface EnrichInput extends EnrichContext {
   readonly title: string
   readonly note: string | null
-  readonly provided: { readonly tags: boolean; readonly lead_days: boolean; readonly goal: boolean; readonly due: boolean }
+  readonly provided: { readonly tags: boolean; readonly lead_days: boolean; readonly goal: boolean; readonly due: boolean; readonly size: boolean }
 }
 
 export interface EnrichClient {

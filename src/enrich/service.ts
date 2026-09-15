@@ -6,6 +6,7 @@ import type { GoalWithProgress } from '../goals/types.js'
 import { addDays, todayInSeoul, toSeoulIso } from '../todos/dates.js'
 import type { Clock, TodoService } from '../todos/service.js'
 import { DEFAULT_LEAD_DAYS } from '../todos/schemas.js'
+import { isSize, leadDaysForSize } from '../todos/size.js'
 import type { Todo } from '../todos/types.js'
 import { listTagsWithOpenCount } from '../tags/repository.js'
 import type { EnrichClient, EnrichmentOutput } from './client.js'
@@ -18,6 +19,7 @@ export interface ProvidedFields {
   readonly lead_days: boolean
   readonly goal: boolean
   readonly due: boolean
+  readonly size: boolean
 }
 
 export interface EnricherDeps {
@@ -201,13 +203,19 @@ function effectiveProvided(provided: ProvidedFields, todo: Todo): ProvidedFields
     lead_days: provided.lead_days || todo.lead_days !== DEFAULT_LEAD_DAYS,
     goal: provided.goal || todo.goal_id !== null,
     due: provided.due || todo.due_at !== null,
+    size: provided.size || todo.size !== null,
   }
 }
 
 function buildPatch(out: EnrichmentOutput, provided: ProvidedFields, goalTags: readonly string[]): EnrichmentApplied {
   const patch: Record<string, unknown> = {}
   if (!provided.tags && out.tags.length > 0) patch.tags = out.tags
-  if (!provided.lead_days && out.lead_days !== null) patch.lead_days = out.lead_days
+  if (!provided.size && isSize(out.size)) patch.size = out.size
+  if (!provided.lead_days) {
+    // An explicit lead from the model wins; otherwise the size it chose sets the preparation window.
+    if (out.lead_days !== null) patch.lead_days = out.lead_days
+    else if (patch.size !== undefined && isSize(patch.size)) patch.lead_days = leadDaysForSize(patch.size)
+  }
   if (!provided.due && out.due !== null) patch.due = out.due
   if (!provided.goal && out.goal !== null && out.goal_confidence === 'high' && goalTags.includes(out.goal)) patch.goal = out.goal
   return patch as EnrichmentApplied

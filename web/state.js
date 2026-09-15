@@ -14,7 +14,7 @@ function initialState() {
     upcoming: null,
     todos: [],
     tags: [],
-    filter: { tag: null, status: 'open', q: '' },
+    filter: { tag: null, status: 'open', q: '', size: null },
     loading: false,
     error: null,
     authenticated: null,

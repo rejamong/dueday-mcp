@@ -12,6 +12,7 @@ export const todoOutput = z.object({
   brain_ref: z.string().nullable(),
   goal_id: z.string().nullable(),
   goal_tag: z.string().nullable(),
+  size: z.number().int().min(1).max(5).nullable(),
   enrichment: z.record(z.string(), z.unknown()).nullable(),
   enriched_at: z.string().nullable(),
   source: z.enum(['mcp', 'web']),

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isDateOnly } from './dates.js'
+import { SIZE_HELP } from './size.js'
 
 const DUE_MESSAGE = 'due는 YYYY-MM-DD 또는 RFC3339 형식이어야 합니다'
 
@@ -28,6 +29,7 @@ export const brainRefSchema = z
 const titleSchema = z.string().trim().min(1, '제목은 비어 있을 수 없습니다').max(200).describe('할 일 제목')
 const noteSchema = z.string().trim().max(2000).describe('메모')
 const leadDaysSchema = z.number().int().min(0).max(60).describe('마감 며칠 전부터 준비를 시작할지 (기본 3)')
+export const sizeSchema = z.number().int().min(1).max(5).describe(`규모(예상 소요): ${SIZE_HELP}. 비우면 서버가 태그 이력·분류기로 추정하고, 있으면 준비 기간(lead_days)이 이에 맞춰 정해진다`)
 const tagsSchema = z.array(tagNameSchema).max(10).describe('태그 목록. 소문자로 정규화되며 없는 태그는 자동 생성')
 
 /** Inputs are intentionally non-strict: LLM callers occasionally add keys, and stripping beats failing. */
@@ -42,6 +44,7 @@ export const addTodoSchema = z.object({
   due: dueSchema.optional(),
   tags: tagsSchema.default([]),
   lead_days: leadDaysSchema.optional(),
+  size: sizeSchema.optional(),
   note: noteSchema.optional(),
   brain_ref: brainRefSchema.optional(),
   goal: goalRefSchema.optional(),
@@ -54,6 +57,7 @@ export const updateTodoFields = z.object({
   due: dueSchema.nullable().optional().describe('새 마감. null이면 마감 제거'),
   tags: tagsSchema.optional().describe('태그 전체 교체'),
   lead_days: leadDaysSchema.optional(),
+  size: sizeSchema.nullable().optional().describe('규모 1~5, null이면 제거'),
   note: noteSchema.nullable().optional(),
   brain_ref: brainRefSchema.nullable().optional(),
   goal: goalRefSchema.nullable().optional().describe('목표 태그로 연결, null이면 연결 해제(일상)'),
@@ -71,6 +75,7 @@ export const listTodosSchema = z.object({
   due_after: dateOnlySchema.optional().describe('마감이 이 날짜(YYYY-MM-DD) 이상인 항목만, 경계 포함'),
   q: z.string().trim().min(1).max(100).optional().describe('제목/메모 부분 일치 검색'),
   goal: z.string().trim().min(1).optional().describe('목표 태그로 필터. "none"이면 목표에 연결되지 않은 일상 항목만'),
+  size: sizeSchema.optional().describe('이 규모(1~5)인 항목만'),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).default(0).describe('건너뛸 개수 (페이지네이션)'),
 })

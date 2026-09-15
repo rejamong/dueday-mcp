@@ -22,6 +22,7 @@ export const enrichmentOutputSchema = z.object({
   goal_confidence: z.enum(['high', 'medium', 'low']),
   lead_days: z.number().int().min(0).max(60).nullable().describe('준비 기간. 판단 불가면 null'),
   due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().describe('제목에 날짜 표현이 있을 때만 YYYY-MM-DD'),
+  size: z.number().int().min(1).max(5).nullable().describe('규모 1=하루 미만 2=1~2일 3=3~7일 4=2주 5=2주 이상. 판단 불가면 null'),
   promote_to_goal: promotionSchema.nullable().describe('할 일보다 목표에 가까울 때만 초안, 아니면 null'),
   reason: z.string().max(200),
 })

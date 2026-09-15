@@ -258,7 +258,7 @@ describe('/api/suggestions', () => {
       title: '매주 달리기', kind: 'short' as const, period_end: null, tag: 'running', why: '건강',
       metric: { name: '달린 횟수', kind: 'count' as const, direction: 'gte' as const, target_value: 20, unit: '회' },
     }
-    const client = { classify: async () => ({ tags: [], goal: null, goal_confidence: 'low' as const, lead_days: null, due: null, promote_to_goal: suggestion, reason: 'r' }) }
+    const client = { classify: async () => ({ tags: [], goal: null, goal_confidence: 'low' as const, lead_days: null, due: null, size: null, promote_to_goal: suggestion, reason: 'r' }) }
     const enricher = new Enricher({ db, clock, client, model: 'test', dailyCap: 10 })
     const service = new TodoService({ db, clock, goals, enricher })
     enricher.attach(service, goals)
