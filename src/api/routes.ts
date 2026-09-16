@@ -27,6 +27,9 @@ async function readJsonBody(c: Context): Promise<unknown> {
   return text.trim().length === 0 ? {} : JSON.parse(text)
 }
 
+/** How long POST /todos/:id/classify waits for the classifier before answering with the todo as stored. */
+const RECLASSIFY_WAIT_MS = 15_000
+
 export function createApiRoutes(service: TodoService, goals?: GoalService, enricher?: Enricher): Hono {
   const app = new Hono()
   if (goals) app.route('/goals', createGoalRoutes(goals))
@@ -39,6 +42,12 @@ export function createApiRoutes(service: TodoService, goals?: GoalService, enric
     if (!enricher) return fail(c, 404, '자동 분류가 설정되지 않았습니다')
     await enricher.dismissSuggestion(c.req.param('id'))
     return ok(c, { id: c.req.param('id'), dismissed: true }, service.today())
+  })
+
+  /** Re-runs the classifier for one todo's blank fields (e.g. to backfill a newly added field). */
+  app.post('/todos/:id/classify', async (c) => {
+    if (!enricher) return fail(c, 404, '자동 분류가 설정되지 않았습니다')
+    return ok(c, await enricher.reclassify(c.req.param('id'), RECLASSIFY_WAIT_MS), service.today())
   })
 
   app.get('/todos', async (c) => {

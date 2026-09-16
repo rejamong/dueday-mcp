@@ -59,3 +59,13 @@ describe('migration v7 (todos.size 1..6)', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM todo_tags').get()).toEqual({ n: 0 })
   })
 })
+
+describe('migration v8 (todos.area)', () => {
+  it('adds a nullable area column constrained to personal/work', () => {
+    const db = new DatabaseSync(':memory:')
+    db.exec('PRAGMA foreign_keys = ON')
+    runMigrations(db)
+    db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, area) VALUES ('t1', 'x', 3, 'open', 'mcp', 't', 't', 'work')").run()
+    expect(() => db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, area) VALUES ('t2', 'x', 3, 'open', 'mcp', 't', 't', 'office')").run()).toThrow()
+  })
+})

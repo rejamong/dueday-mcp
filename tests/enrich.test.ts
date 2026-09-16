@@ -10,7 +10,7 @@ const fixedNow = new Date('2026-09-13T01:00:00Z')
 
 function output(overrides: Partial<EnrichmentOutput> = {}): EnrichmentOutput {
   return {
-    tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: null, size: null, promote_to_goal: null, reason: 'test', ...overrides,
+    tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: null, size: null, area: null, promote_to_goal: null, reason: 'test', ...overrides,
   }
 }
 
@@ -47,7 +47,7 @@ describe('Enricher', () => {
     expect(todo?.lead_days).toBe(5)
     expect(todo?.enrichment).toEqual({ lead_days: 5 })
     expect(todo?.enriched_at).toBe('2026-09-13T10:00:00+09:00')
-    expect(calls[0]?.provided).toEqual({ tags: true, lead_days: false, goal: false, due: false, size: false })
+    expect(calls[0]?.provided).toEqual({ tags: true, lead_days: false, goal: false, due: false, size: false, area: false })
     const log = listEnrichmentLog(db, todo?.id ?? '')
     expect(log[0]?.status).toBe('ok')
   })
@@ -137,7 +137,7 @@ describe('Enricher races', () => {
     const client: EnrichClient = {
       classify: async () => {
         await gate
-        return { tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: '2026-09-20', size: null, promote_to_goal: null, reason: 'r' }
+        return { tags: ['업무'], goal: null, goal_confidence: 'low', lead_days: 5, due: '2026-09-20', size: null, area: null, promote_to_goal: null, reason: 'r' }
       },
     }
     const { todos, enricher, db } = make(client)
@@ -212,5 +212,24 @@ describe('Enricher waiting and suggestion visibility', () => {
     await goals.add({ title: '달리기', kind: 'long', tag: 'running' })
     expect(enricher.listSuggestions()).toEqual([])
     expect(enricher.pendingSuggestionFor(todo.id)).toBeUndefined()
+  })
+})
+
+describe('Enricher.reclassify', () => {
+  it('re-runs the classifier for the blank fields of an existing todo and keeps filled ones', async () => {
+    let next = output({ tags: ['업무'], area: null, size: 3, lead_days: null })
+    const { todos, enricher } = make({ classify: async () => next })
+    const t = await todos.add({ title: '기존 항목', tags: ['개인'] }, 'web')
+    await enricher.flush()
+    await todos.update(t.id, { size: 2 }) // manual edit clears the marker; size is now user-owned
+    const before = todos.get(t.id)
+    expect(before.enrichment).toBeNull()
+    expect(before.area).toBeNull()
+    next = output({ tags: ['업무'], area: 'work', size: 5, lead_days: null })
+    const after = await enricher.reclassify(t.id, 2000)
+    expect(after.area).toBe('work')
+    expect(after.size).toBe(2)
+    expect(after.tags).toEqual(['개인'])
+    expect(after.enrichment).toEqual({ area: 'work' })
   })
 })

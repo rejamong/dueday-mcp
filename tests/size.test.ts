@@ -80,7 +80,7 @@ describe('size (규모)', () => {
 
 describe('size via the classifier', () => {
   function output(overrides: Partial<EnrichmentOutput> = {}): EnrichmentOutput {
-    return { tags: [], goal: null, goal_confidence: 'low', lead_days: null, due: null, size: null, promote_to_goal: null, reason: 'r', ...overrides }
+    return { tags: [], goal: null, goal_confidence: 'low', lead_days: null, due: null, size: null, area: null, promote_to_goal: null, reason: 'r', ...overrides }
   }
 
   function makeWithClassifier(next: () => EnrichmentOutput): TodoService {

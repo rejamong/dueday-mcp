@@ -1,5 +1,6 @@
 import { createElement, escapeHtml, showToast } from '../utils.js'
 import { SIZES, SIZE_LABELS } from '../size.js'
+import { AREA_LABELS } from '../area.js'
 
 // Mirrors the server's DEFAULT_LEAD_DAYS (src/todos/schemas.ts) and the input's own default value below.
 // Only sent when the user changes it, so an unmodified field lets the server derive lead_days from `size`.
@@ -24,17 +25,22 @@ function sizeSelectHtml() {
   `
 }
 
-/** 목표 select options: every non-일상, non-life goal, defaulting to 일상. */
+/** 구분/목표 select options: 구분 안 함 + 일상/업무 (area:*) + a separator + every non-life goal. */
 function goalSelectHtml(goals) {
-  const options = goals
+  const areaOptions = Object.entries(AREA_LABELS)
+    .map(([value, label]) => `<option value="area:${value}">${escapeHtml(label)}</option>`)
+    .join('')
+  const goalOptions = goals
     .filter((g) => g.kind !== 'life')
     .map((g) => `<option value="${escapeHtml(g.tag)}">${escapeHtml(g.title)}</option>`)
     .join('')
   return `
-    <label class="visually-hidden" for="qa-goal">목표</label>
+    <label class="visually-hidden" for="qa-goal">구분 / 목표</label>
     <select id="qa-goal" class="qa-goal">
-      <option value="">일상</option>
-      ${options}
+      <option value="">구분 안 함</option>
+      ${areaOptions}
+      <option value="__sep__" disabled>── 목표 ──</option>
+      ${goalOptions}
     </select>
   `
 }
@@ -102,8 +108,12 @@ export function render(state, actions) {
     // derive lead_days from `size` instead (see src/todos/service.ts).
     if (leadInput.value !== '' && Number(leadInput.value) !== DEFAULT_LEAD_DAYS) payload.lead_days = Number(leadInput.value)
     if (sizeSelect.value !== '') payload.size = Number(sizeSelect.value)
-    if (pendingGoal) payload.goal = pendingGoal.tag
-    else if (goalSelect && goalSelect.value) payload.goal = goalSelect.value
+    if (pendingGoal) {
+      payload.goal = pendingGoal.tag
+    } else if (goalSelect && goalSelect.value) {
+      if (goalSelect.value.startsWith('area:')) payload.area = goalSelect.value.slice('area:'.length)
+      else payload.goal = goalSelect.value
+    }
 
     submitBtn.disabled = true
     try {

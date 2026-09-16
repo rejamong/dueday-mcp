@@ -16,6 +16,7 @@ function todo(overrides: Partial<Todo> & { id: string }): Todo {
     goal_id: null,
     goal_tag: null,
     size: null,
+    area: null,
     time_pressure: null,
     enrichment: null,
     enriched_at: null,

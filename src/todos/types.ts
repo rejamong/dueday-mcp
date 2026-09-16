@@ -12,6 +12,8 @@ export interface TodoRow {
   readonly goal_id: string | null
   /** 규모 1..6 (null = not estimated). */
   readonly size: number | null
+  /** 일상(personal) / 업무(work); null = not classified yet. */
+  readonly area: 'personal' | 'work' | null
   /** JSON of fields filled by the classifier; cleared on manual edit. */
   readonly enrichment: string | null
   readonly enriched_at: string | null
@@ -27,6 +29,7 @@ export interface EnrichmentApplied {
   readonly lead_days?: number
   readonly due?: string
   readonly size?: number
+  readonly area?: 'personal' | 'work'
 }
 
 export interface Todo extends Omit<TodoRow, 'enrichment'> {

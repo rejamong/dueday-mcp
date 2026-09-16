@@ -1,5 +1,6 @@
 import { escapeHtml, createElement } from '../utils.js'
 import { SIZES } from '../size.js'
+import { AREA_LABELS } from '../area.js'
 
 function tagChip(name, label, selected) {
   return `<button type="button" class="chip ${selected ? 'chip-selected' : ''}" data-tag="${escapeHtml(name ?? '')}">${escapeHtml(label)}</button>`
@@ -9,7 +10,11 @@ function sizeChip(value, label, selected) {
   return `<button type="button" class="chip ${selected ? 'chip-selected' : ''}" data-size="${escapeHtml(value)}">${escapeHtml(label)}</button>`
 }
 
-/** Tag chips + 규모 chips + 미완료/완료 toggle + search box for the "전체 목록" section. */
+function areaChip(value, label, selected) {
+  return `<button type="button" class="chip ${selected ? 'chip-selected' : ''}" data-area="${escapeHtml(value)}">${escapeHtml(label)}</button>`
+}
+
+/** Tag chips + 규모 chips + 구분 chips + 미완료/완료 toggle + search box for the "전체 목록" section. */
 export function render(state, actions) {
   const { filter, tags } = state
   const chips = [tagChip('', '전체', filter.tag === null)]
@@ -18,12 +23,19 @@ export function render(state, actions) {
   const sizeChips = [sizeChip('', '전체', filter.size === null)]
   for (const s of SIZES) sizeChips.push(sizeChip(String(s), String(s), filter.size === s))
 
+  const areaChips = [areaChip('', '전체', filter.area === null)]
+  for (const [value, label] of Object.entries(AREA_LABELS)) areaChips.push(areaChip(value, label, filter.area === value))
+
   const el = createElement(`
     <div class="filters-bar">
       <div class="filters-chips">${chips.join('')}</div>
       <div class="filters-size">
         <span class="filters-size-label">규모</span>
         <div class="filters-chips">${sizeChips.join('')}</div>
+      </div>
+      <div class="filters-area">
+        <span class="filters-size-label">구분</span>
+        <div class="filters-chips">${areaChips.join('')}</div>
       </div>
       <div class="filters-spacer"></div>
       <div class="filters-status">
@@ -47,6 +59,13 @@ export function render(state, actions) {
     chip.addEventListener('click', () => {
       const size = chip.dataset.size
       actions.setFilter({ size: size === '' ? null : Number(size) })
+    })
+  })
+
+  el.querySelectorAll('.chip[data-area]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const area = chip.dataset.area
+      actions.setFilter({ area: area === '' ? null : area })
     })
   })
 

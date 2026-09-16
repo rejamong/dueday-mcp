@@ -1,5 +1,6 @@
 import { escapeHtml, createElement, showToast } from '../utils.js'
 import { SIZES, SIZE_LABELS } from '../size.js'
+import { AREA_LABELS } from '../area.js'
 
 function toDateOnly(value) {
   return value ? String(value).slice(0, 10) : ''
@@ -12,17 +13,30 @@ function parseTags(raw) {
     .filter((t) => t.length > 0)
 }
 
-/** 목표 select options: 일상 + every non-life goal, defaulting to the todo's current goal. */
+/** The 구분/목표 select's current value for a todo: its goal tag, its `area:*` option, or '' (구분 안 함). */
+function currentSelectValue(todo) {
+  if (todo.goal_tag) return todo.goal_tag
+  if (todo.area) return `area:${todo.area}`
+  return ''
+}
+
+/** 구분/목표 select options: 구분 안 함 + 일상/업무 (area:*) + every non-life goal, prefilled from the todo. */
 function goalSelectHtml(todo, goals) {
-  const options = goals
+  const currentValue = currentSelectValue(todo)
+  const areaOptions = Object.entries(AREA_LABELS)
+    .map(([value, label]) => `<option value="area:${value}" ${currentValue === `area:${value}` ? 'selected' : ''}>${escapeHtml(label)}</option>`)
+    .join('')
+  const goalOptions = goals
     .filter((g) => g.kind !== 'life')
     .map((g) => `<option value="${escapeHtml(g.tag)}" ${g.tag === todo.goal_tag ? 'selected' : ''}>${escapeHtml(g.title)}</option>`)
     .join('')
   return `
-    <label class="visually-hidden" for="editor-goal">목표</label>
+    <label class="visually-hidden" for="editor-goal">구분 / 목표</label>
     <select id="editor-goal" class="editor-goal">
-      <option value="" ${todo.goal_tag ? '' : 'selected'}>일상</option>
-      ${options}
+      <option value="" ${currentValue === '' ? 'selected' : ''}>구분 안 함</option>
+      ${areaOptions}
+      <option value="__sep__" disabled>── 목표 ──</option>
+      ${goalOptions}
     </select>
   `
 }
@@ -47,7 +61,17 @@ function buildPatch(todo, fields) {
   if (fields.leadDays !== todo.lead_days) patch.lead_days = fields.leadDays
   const currentTags = (todo.tags || []).join(', ')
   if (fields.tagsRaw !== currentTags) patch.tags = parseTags(fields.tagsRaw)
-  if (fields.goal !== (todo.goal_tag || '')) patch.goal = fields.goal === '' ? null : fields.goal
+  if (fields.goal !== currentSelectValue(todo)) {
+    if (fields.goal.startsWith('area:')) {
+      patch.area = fields.goal.slice('area:'.length)
+      if (todo.goal_tag) patch.goal = null
+    } else if (fields.goal === '') {
+      patch.area = null
+      if (todo.goal_tag) patch.goal = null
+    } else {
+      patch.goal = fields.goal
+    }
+  }
   if (fields.size !== (todo.size ?? null)) patch.size = fields.size
   return patch
 }
@@ -58,7 +82,7 @@ function readFields(todo, refs) {
     due: refs.due.value,
     leadDays: refs.lead.value === '' ? todo.lead_days : Number(refs.lead.value),
     tagsRaw: refs.tags.value,
-    goal: refs.goal ? refs.goal.value : todo.goal_tag || '',
+    goal: refs.goal ? refs.goal.value : currentSelectValue(todo),
     size: refs.size && refs.size.value !== '' ? Number(refs.size.value) : null,
   }
 }

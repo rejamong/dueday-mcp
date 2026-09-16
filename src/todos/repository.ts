@@ -46,8 +46,8 @@ export type GoalFilter = string | null | undefined
 
 export function insertTodo(db: Db, row: TodoRow): void {
   db.prepare(
-    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, size, enrichment, enriched_at, source, created_at, updated_at, done_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO todos (id, title, note, due_at, lead_days, status, brain_ref, goal_id, size, area, enrichment, enriched_at, source, created_at, updated_at, done_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     row.id,
     row.title,
@@ -58,6 +58,7 @@ export function insertTodo(db: Db, row: TodoRow): void {
     row.brain_ref,
     row.goal_id,
     row.size,
+    row.area,
     row.enrichment,
     row.enriched_at,
     row.source,
@@ -110,6 +111,10 @@ function buildWhere(filter: ListTodosInput, goal: GoalFilter): WhereClause {
     clauses.push('t.size = ?')
     params.push(filter.size)
   }
+  if (filter.area !== undefined) {
+    clauses.push('t.area = ?')
+    params.push(filter.area)
+  }
   return { sql: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '', params }
 }
 
@@ -148,7 +153,7 @@ export function listDoneTodosForGoal(db: Db, goalId: string, limit: number, toda
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>
 
 const UPDATABLE_COLUMNS: ReadonlySet<string> = new Set([
-  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'size', 'enrichment', 'enriched_at', 'updated_at', 'done_at',
+  'title', 'note', 'due_at', 'lead_days', 'status', 'brain_ref', 'goal_id', 'size', 'area', 'enrichment', 'enriched_at', 'updated_at', 'done_at',
 ])
 
 export function updateTodo(db: Db, id: string, patch: TodoPatch): void {

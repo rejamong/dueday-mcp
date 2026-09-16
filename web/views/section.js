@@ -36,6 +36,7 @@ function buildSectionBlock({ heading, countHtml = '', rowElements = null, emptyT
 function matchesFilters(todo, filter) {
   if (filter.tag && !(todo.tags || []).includes(filter.tag)) return false
   if (filter.size !== null && filter.size !== undefined && todo.size !== filter.size) return false
+  if (filter.area !== null && filter.area !== undefined && todo.area !== filter.area) return false
   if (filter.q) {
     const q = filter.q.toLowerCase()
     const haystack = `${todo.title} ${todo.note ?? ''}`.toLowerCase()
@@ -80,6 +81,22 @@ function laterSection(state, actions) {
   })
 }
 
+/**
+ * "마감 없음" — open todos with no due date. These never appear under 지금 준비 시작 (no due date to
+ * gauge prep against), 7일 내 예정, or the calendar, so without this block they'd be invisible.
+ */
+function noDueSection(state, actions) {
+  const rows = state.todos
+    .filter((t) => t.status === 'open' && !t.due_at)
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+  if (rows.length === 0) return null
+  return buildSectionBlock({
+    heading: '마감 없음',
+    countHtml: `${rows.length} · 마감 없는 열린 할 일`,
+    rowElements: rows.map((todo) => renderRow(todo, state, actions, 'nodue')),
+  })
+}
+
 function allListSection(state, actions) {
   const toggleEl = renderViewToggle(state, actions)
 
@@ -110,12 +127,14 @@ function allListSection(state, actions) {
   })
 }
 
-/** Renders all three list sections (지금 준비 시작 / 7일 내 예정 / 전체 목록) as one fragment. */
+/** Renders all list sections (지금 준비 시작 / 7일 내 예정 / 마감 없음 / 전체 목록) as one fragment. */
 export function render(state, actions) {
   const wrap = document.createElement('div')
   wrap.className = 'sections'
   wrap.appendChild(startNowSection(state, actions))
   wrap.appendChild(laterSection(state, actions))
+  const noDue = noDueSection(state, actions)
+  if (noDue) wrap.appendChild(noDue)
   wrap.appendChild(allListSection(state, actions))
   return wrap
 }

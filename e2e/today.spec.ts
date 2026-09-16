@@ -97,7 +97,9 @@ test('edit, cancel, restore, delete', async ({ page }) => {
     const initialRow = allSection.locator('.todo-row').filter({ hasText: EDIT_TITLE })
     await expect(initialRow).toBeVisible()
     const todoId = await initialRow.getAttribute('data-id')
-    row = page.locator(`.todo-row[data-id="${todoId}"]`)
+    // Scoped to 전체 목록: a due-less todo also renders under 마감 없음, so an unscoped
+    // `.todo-row[data-id=...]` locator would match both rows before the edit step below gives it a due date.
+    row = allSection.locator(`.todo-row[data-id="${todoId}"]`)
   })
 
   await test.step('편집: due date +10d and tags a, b', async () => {
@@ -495,7 +497,8 @@ test('mobile: quick-add collapses behind a button and stat cards become one line
   const TITLE = `모바일 등록 ${Date.now()}`
   await page.fill('#qa-title', TITLE)
   await page.press('#qa-title', 'Enter')
-  await expect(page.locator('.todo-row', { hasText: TITLE })).toBeVisible()
+  // A due-less todo renders under both 마감 없음 and 전체 목록, so this just checks it landed somewhere.
+  await expect(page.locator('.todo-row', { hasText: TITLE }).first()).toBeVisible()
   await expect(page.locator('.quick-add')).toBeHidden()
   const res = await page.request.get(`/api/todos?q=${encodeURIComponent(TITLE)}`)
   const { data } = await res.json()
@@ -570,6 +573,98 @@ test('규모 대비 촉박: tight/critical badges, row accents, and the stats co
   await test.step('the stats card strip shows 규모 대비 촉박 count 2', async () => {
     const tightCard = page.locator('.stat-card').filter({ hasText: '규모 대비 촉박' })
     await expect(tightCard.locator('.stat-number')).toHaveText('2')
+  })
+
+  await test.step('clean up all three todos via the API', async () => {
+    for (const id of ids) {
+      const delRes = await page.request.delete(`/api/todos/${id}`)
+      expect(delRes.ok()).toBe(true)
+    }
+  })
+})
+
+test('구분(area): 마감 없음 섹션, 행 칩, 구분 필터, 편집기에서 구분 변경', async ({ page }) => {
+  const stamp = Date.now()
+  const TITLE_NODUE = `E2E 마감없음 테스트 ${stamp}`
+  const TITLE_WORK = `E2E 구분업무 테스트 ${stamp}`
+  const TITLE_PERSONAL = `E2E 구분일상 테스트 ${stamp}`
+  let today = ''
+  let nodueId = ''
+  const ids: string[] = []
+
+  const allSection = page.locator('.section').filter({ hasText: '전체 목록' })
+  const noDueSection = page.locator('.section').filter({ has: page.locator('.section-heading', { hasText: '마감 없음' }) })
+
+  await test.step('log in via the REST API (never type the password into the login form)', async () => {
+    // A distinct x-forwarded-for gives this test its own login rate-limit bucket (see
+    // src/auth/rate-limit.ts's clientKey) instead of sharing the 10/min "anonymous" bucket that
+    // every other form/API login in this file already fills up within the suite's ~10s run.
+    const res = await page.request.post('/login', { headers: { 'x-forwarded-for': '203.0.113.77' }, data: { password: OWNER_PASSWORD } })
+    expect(res.ok()).toBe(true)
+  })
+
+  await test.step('open the app and read today', async () => {
+    await page.goto('/')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+  })
+
+  await test.step('create T1 (no due date), T2 (area work + due date), and T3 (area personal + due date) via the API', async () => {
+    const createNoDue = await page.request.post('/api/todos', { data: { title: TITLE_NODUE } })
+    expect(createNoDue.ok()).toBe(true)
+    nodueId = (await createNoDue.json()).data.id
+    ids.push(nodueId)
+
+    const createWork = await page.request.post('/api/todos', { data: { title: TITLE_WORK, area: 'work', due: addDaysUtc(today, 5) } })
+    expect(createWork.ok()).toBe(true)
+    ids.push((await createWork.json()).data.id)
+
+    const createPersonal = await page.request.post('/api/todos', { data: { title: TITLE_PERSONAL, area: 'personal', due: addDaysUtc(today, 4) } })
+    expect(createPersonal.ok()).toBe(true)
+    ids.push((await createPersonal.json()).data.id)
+  })
+
+  await test.step('reload so the list picks up the new todos', async () => {
+    await page.reload()
+    await expect(page.locator('.topbar')).toBeVisible()
+  })
+
+  await test.step('마감 없음 section is visible and contains T1', async () => {
+    await expect(noDueSection).toBeVisible()
+    await expect(noDueSection.locator('.todo-row').filter({ hasText: TITLE_NODUE })).toBeVisible()
+  })
+
+  await test.step("T2's row shows the 업무 chip and T3's row shows the 일상 chip", async () => {
+    const rowWork = allSection.locator('.todo-row').filter({ hasText: TITLE_WORK })
+    await expect(rowWork.locator('.area-chip')).toHaveText('업무')
+
+    const rowPersonal = allSection.locator('.todo-row').filter({ hasText: TITLE_PERSONAL })
+    await expect(rowPersonal.locator('.area-chip')).toHaveText('일상')
+  })
+
+  await test.step('clicking the 구분 filter 업무 narrows 전체 목록 to T2 only, then reset', async () => {
+    await allSection.locator('.filters-area .chip[data-area="work"]').click()
+    await expect(allSection.locator('.todo-row')).toHaveCount(1)
+    await expect(allSection.locator('.todo-row').filter({ hasText: TITLE_WORK })).toBeVisible()
+
+    await allSection.locator('.filters-area .chip[data-area=""]').click()
+    await expect(allSection.locator('.todo-row').filter({ hasText: TITLE_WORK })).toBeVisible()
+    await expect(allSection.locator('.todo-row').filter({ hasText: TITLE_PERSONAL })).toBeVisible()
+  })
+
+  await test.step("editing T1 to 업무 in the row editor shows the 업무 chip", async () => {
+    // Scoped by data-id (stable across edit mode) rather than hasText: once editing, the title
+    // moves into an <input>'s value, which no longer counts toward the element's text content.
+    const row = noDueSection.locator(`.todo-row[data-id="${nodueId}"]`)
+    await row.locator('.row-menu-btn').click()
+    await row.locator('button[data-action="edit"]').click()
+    await row.locator('.editor-goal').selectOption('area:work')
+    await row.locator('.editor-save').click()
+
+    await expect(page.locator('#toast')).toContainText('저장됨')
+    await expect(row.locator('.area-chip')).toHaveText('업무')
   })
 
   await test.step('clean up all three todos via the API', async () => {

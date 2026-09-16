@@ -34,6 +34,7 @@
       "done_at": "string (RFC3339) | null",
       "goal_id": "string | null (연결된 목표 id, null = 일상)",
       "goal_tag": "string | null",
+      "area": "personal | work | null — 구분: 일상/업무. 비우면 자동 분류가 추정. 목표에 연결되지 않은 항목을 일상·업무로 나눠 볼 때 사용",
       "time_pressure": "tight | critical | null — derived: open 항목의 남은 일수가 규모의 준비 기간(1→0, 2→1, 3→2, 4→5, 5→10, 6→14)보다 짧으면 tight, 그 절반 이하면 critical. 마감 지남·규모 없음·규모 1은 null",
       "enrichment": "{ tags?, goal?, lead_days?, due?, size? } | null (Claude 자동 분류가 채운 필드; 직접 수정하면 null)",
       "enriched_at": "string (RFC3339) | null"
@@ -92,6 +93,11 @@
           "max": 6,
           "required": false,
           "note": "규모. 주면 lead_days가 비어 있을 때 규모에서 정해짐"
+        },
+        "area": {
+          "type": "personal | work",
+          "required": false,
+          "note": "사용자가 명시했을 때만. 비우면 서버가 추정"
         },
         "note": {
           "type": "string",
@@ -168,6 +174,11 @@
           "max": 6,
           "required": false,
           "note": "이 규모인 항목만"
+        },
+        "area": {
+          "type": "personal | work",
+          "required": false,
+          "note": "일상 또는 업무 항목만"
         }
       },
       "output": "Todo[] with meta.total"
@@ -185,6 +196,7 @@
         "tags": "string[]? (전체 교체)",
         "lead_days": "int?",
         "size": "int 1..6 | null ? (null이면 제거)",
+        "area": "personal | work | null ?",
         "note": "string | null ?",
         "brain_ref": "string | null ?",
         "goal": "string | null ? (null이면 목표 연결 해제)"
@@ -342,6 +354,7 @@
       "output": "Goal + { checkins[], open_todos[], done_todos[] (최근 완료 20건, 최신순) }"
     }
   ],
+  "restOnly": "POST /api/todos/:id/classify — 기존 항목의 비어 있는 필드(구분·규모·태그·목표 등)를 분류기로 다시 채움(최대 15초 대기). GET/POST /api/suggestions[/accept|dismiss]. 웹 세션 또는 Bearer 토큰.",
   "validation": "zod schemas on every input; unknown keys are stripped (LLM-friendly); strings trimmed; dates parsed with a fixed Asia/Seoul offset",
   "rateLimit": "RATE_LIMIT_PER_MIN (default 60) per client IP (cf-connecting-ip / x-forwarded-for), in-memory fixed window; 429 + Retry-After"
 }

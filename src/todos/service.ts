@@ -36,6 +36,7 @@ export interface ProvidedFields {
   readonly goal: boolean
   readonly due: boolean
   readonly size: boolean
+  readonly area: boolean
 }
 
 export interface EnrichQueue {
@@ -63,7 +64,7 @@ const nextUlid = monotonicFactory()
 
 function sameContent(a: Todo, b: Todo): boolean {
   return a.title === b.title && a.note === b.note && a.due_at === b.due_at && a.lead_days === b.lead_days
-    && a.size === b.size && a.goal_id === b.goal_id && a.tags.join(',') === b.tags.join(',')
+    && a.size === b.size && a.area === b.area && a.goal_id === b.goal_id && a.tags.join(',') === b.tags.join(',')
 }
 
 function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
@@ -72,6 +73,7 @@ function rowPatchFrom(patch: UpdateTodoInput): TodoPatch {
   if (patch.due !== undefined) out.due_at = patch.due === null ? null : parseDue(patch.due)
   if (patch.lead_days !== undefined) out.lead_days = patch.lead_days
   if (patch.size !== undefined) out.size = patch.size
+  if (patch.area !== undefined) out.area = patch.area
   if (patch.note !== undefined) out.note = patch.note
   if (patch.brain_ref !== undefined) out.brain_ref = patch.brain_ref
   return out as TodoPatch
@@ -132,6 +134,7 @@ export class TodoService {
         brain_ref: data.brain_ref ?? null,
         goal_id: goalId,
         size,
+        area: data.area ?? null,
         enrichment: inferred ? JSON.stringify(inferred) : null,
         enriched_at: inferred ? now : null,
         source,
@@ -150,6 +153,7 @@ export class TodoService {
       goal: data.goal !== undefined,
       due: data.due !== undefined,
       size: size !== null,
+      area: data.area !== undefined,
     })
     if (options.awaitEnrichmentMs === undefined) return todo
     await this.enricher.waitFor(id, options.awaitEnrichmentMs)
@@ -176,6 +180,7 @@ export class TodoService {
         ...(applied.lead_days !== undefined ? { lead_days: applied.lead_days } : {}),
         ...(applied.due !== undefined ? { due_at: parseDue(applied.due) } : {}),
         ...(applied.size !== undefined ? { size: applied.size } : {}),
+        ...(applied.area !== undefined ? { area: applied.area } : {}),
         ...(goalId !== undefined ? { goal_id: goalId } : {}),
         enrichment: JSON.stringify({ ...existing.enrichment, ...applied }),
         enriched_at: now,

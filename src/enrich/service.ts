@@ -20,6 +20,7 @@ export interface ProvidedFields {
   readonly goal: boolean
   readonly due: boolean
   readonly size: boolean
+  readonly area: boolean
 }
 
 export interface EnricherDeps {
@@ -77,6 +78,21 @@ export class Enricher {
       .finally(() => this.jobs.delete(todoId))
     this.jobs.set(todoId, job)
     this.queue = job
+  }
+
+  /**
+   * Classifies an existing todo again, filling only the fields that are still blank (e.g. after a new
+   * field such as area is introduced). Resolves with the todo once done or after `timeoutMs`.
+   */
+  async reclassify(todoId: string, timeoutMs: number): Promise<Todo> {
+    const { todos } = this.services()
+    todos.get(todoId)
+    const blank: ProvidedFields = { tags: false, lead_days: false, goal: false, due: false, size: false, area: false }
+    const job = this.queue.then(() => this.run(todoId, blank)).catch((error) => console.error('enrich 큐 오류:', error)).finally(() => this.jobs.delete(todoId))
+    this.jobs.set(todoId, job)
+    this.queue = job
+    await this.waitFor(todoId, timeoutMs)
+    return todos.get(todoId)
   }
 
   /** Resolves when this todo's classification finishes or `timeoutMs` passes, whichever comes first. */
@@ -204,6 +220,7 @@ function effectiveProvided(provided: ProvidedFields, todo: Todo): ProvidedFields
     goal: provided.goal || todo.goal_id !== null,
     due: provided.due || todo.due_at !== null,
     size: provided.size || todo.size !== null,
+    area: provided.area || todo.area !== null,
   }
 }
 
@@ -211,6 +228,7 @@ function buildPatch(out: EnrichmentOutput, provided: ProvidedFields, goalTags: r
   const patch: Record<string, unknown> = {}
   if (!provided.tags && out.tags.length > 0) patch.tags = out.tags
   if (!provided.size && isSize(out.size)) patch.size = out.size
+  if (!provided.area && out.area !== null) patch.area = out.area
   if (!provided.lead_days) {
     // An explicit lead from the model wins; otherwise the size it chose sets the preparation window.
     if (out.lead_days !== null) patch.lead_days = out.lead_days

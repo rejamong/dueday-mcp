@@ -202,6 +202,12 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_todos_goal ON todos (goal_id);
     `,
   },
+  {
+    version: 8,
+    sql: `
+      ALTER TABLE todos ADD COLUMN area TEXT CHECK (area IN ('personal', 'work'));
+    `,
+  },
 ]
 
 export function runMigrations(db: DatabaseSync): void {
