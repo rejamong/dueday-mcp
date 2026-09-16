@@ -48,3 +48,11 @@ export function addDays(date: string, days: number): string {
 export function prepStart(dueAt: string, leadDays: number): string {
   return seoulDate(new Date(new Date(dueAt).getTime() - leadDays * DAY_MS))
 }
+
+/** Calendar days from `today` (YYYY-MM-DD) to the Seoul date of `dueAt` (ISO); negative when overdue, 0 when due today. */
+export function daysUntil(today: string, dueAt: string): number {
+  const due = seoulDate(new Date(dueAt))
+  const [ty, tm, td] = today.split('-').map(Number) as [number, number, number]
+  const [dy, dm, dd] = due.split('-').map(Number) as [number, number, number]
+  return Math.round((Date.UTC(dy, dm - 1, dd) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+}

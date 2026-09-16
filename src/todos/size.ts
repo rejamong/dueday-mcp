@@ -25,3 +25,19 @@ export function isSize(value: unknown): value is Size {
 
 /** `1=1시간 미만 / 2=하루 미만 / …` for schema descriptions. */
 export const SIZE_HELP = SIZES.map((s) => `${s}=${SIZE_DESCRIPTIONS[s]}`).join(' / ')
+
+export type TimePressure = 'tight' | 'critical'
+
+/**
+ * Whether `remainingDays` (calendar days until due; 0 = due today) is short for a todo of this size:
+ * 'tight' when fewer days remain than the size's preparation window, 'critical' at half that or less.
+ * Null for overdue (its own state), unknown size, or size 1 (nothing to prepare).
+ */
+export function timePressure(size: unknown, remainingDays: number): TimePressure | null {
+  if (!isSize(size) || remainingDays < 0) return null
+  const required = leadDaysForSize(size)
+  if (required === 0) return null
+  if (remainingDays <= Math.floor(required / 2)) return 'critical'
+  if (remainingDays < required) return 'tight'
+  return null
+}

@@ -1,4 +1,5 @@
 import { createElement } from '../utils.js'
+import { timePressure } from '../size.js'
 
 function statCard(variant, count, label) {
   return `
@@ -10,8 +11,14 @@ function statCard(variant, count, label) {
   `
 }
 
+/** Count of open todos whose remaining time is short relative to their 규모 (tight or critical). */
+function pressureCount(state) {
+  const todos = state.todos || []
+  return todos.filter((t) => timePressure(t, state.today) !== null).length
+}
+
 /**
- * Overdue / start-now / later counts from the /api/upcoming payload: three cards on wide screens,
+ * Overdue / start-now / later / 규모 대비 촉박 counts: four cards on wide screens,
  * a single compact line on phones (CSS picks which one shows).
  */
 export function render(state) {
@@ -20,6 +27,7 @@ export function render(state) {
     ['overdue', upcoming.overdue.length, '마감 지남'],
     ['start_now', upcoming.start_now.length, '지금 준비 시작'],
     ['later', upcoming.later.length, '7일 내 예정'],
+    ['tight', pressureCount(state), '규모 대비 촉박'],
   ]
   return createElement(`
     <div class="stats">

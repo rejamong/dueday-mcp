@@ -10,6 +10,8 @@
   --link: #2e5aa8;
   --danger: #b3261e;
   --danger-tint: #fbe9e7;
+  --warn: #b7791f;
+  --warn-tint: #fdf3dc;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-pill: 999px;
@@ -139,6 +141,9 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .stat-overdue .stat-number, .stat-overdue .stat-eyebrow { color: var(--danger); }
 .stat-start_now { background: var(--accent-tint); }
 .stat-start_now .stat-number, .stat-start_now .stat-eyebrow { color: var(--accent); }
+.stat-tight { background: var(--warn-tint); border-color: var(--warn); }
+.stat-tight .stat-number, .stat-tight .stat-eyebrow { color: var(--warn); }
+.stat-line-tight b { color: var(--warn); }
 
 /* Sections */
 .sections { display: flex; flex-direction: column; gap: var(--sp-6); }
@@ -166,6 +171,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 /* Todo row */
 .todo-row { display: flex; align-items: center; gap: var(--sp-4); padding: 12px 16px; border-bottom: 1px solid var(--rule); }
 .todo-row:last-child { border-bottom: none; }
+.todo-row.is-tight { border-left: 3px solid var(--warn); padding-left: 13px; }
+.todo-row.is-critical { border-left: 3px solid var(--danger); padding-left: 13px; }
 .row-toggle { border: 1px solid var(--rule); background: var(--surface); color: var(--ink); padding: 6px 12px; font-size: 13px; font-weight: 500; white-space: nowrap; }
 .row-toggle:hover, .row-toggle:focus-visible { border-color: var(--ink); background: var(--paper); }
 .row-toggle-done { color: var(--muted); }
@@ -220,6 +227,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .badge-start_now { color: var(--accent); background: var(--accent-tint); }
 .badge-later { color: var(--muted); background: var(--surface); border: 1px solid var(--rule); }
 .badge-done, .badge-none, .badge-cancelled { color: var(--muted); background: var(--paper); }
+.badge-tight { color: var(--warn); background: var(--warn-tint); }
+.badge-critical { color: var(--danger); background: var(--danger-tint); }
 .row-title.is-cancelled { color: var(--muted); }
 
 /* Row menu (⋯ popover) */
@@ -371,6 +380,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
 .cal-chip-done { color: var(--soft); background: var(--paper); text-decoration: line-through; }
 .cal-chip-prep { color: var(--soft); background: var(--paper); border: 1px dashed var(--rule); }
 .cal-chip-more { font-family: var(--font-mono); font-size: 11px; color: var(--soft); }
+.cal-chip-tight { color: var(--warn); background: var(--warn-tint); font-weight: 700; }
+.cal-chip-critical { color: var(--danger); background: var(--danger-tint); font-weight: 700; }
 
 /* Calendar — per-day quick add */
 .cal-cell-wrap { position: relative; min-width: 0; min-height: 124px; }
@@ -482,6 +493,8 @@ button, input { font-family: inherit; font-size: inherit; color: inherit; }
   .cal-chip-later { background: var(--ink); opacity: .8; }
   .cal-chip-done { background: var(--soft); opacity: .5; text-decoration: none; }
   .cal-chip-prep { background: transparent; border: 1px dashed var(--muted); height: 6px; }
+  .cal-chip-tight { background: var(--warn); }
+  .cal-chip-critical { background: var(--danger); }
   .cal-cell-chips { flex-direction: column; gap: 3px; }
   .cal-chip-more { display: block; font-size: 10px; line-height: 1; }
 }

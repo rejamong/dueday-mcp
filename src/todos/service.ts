@@ -158,7 +158,7 @@ export class TodoService {
 
   /** Like get(), but returns undefined instead of throwing (for background work on possibly-deleted todos). */
   find(id: string): Todo | undefined {
-    return findTodo(this.db, id)
+    return findTodo(this.db, id, this.today())
   }
 
   /**
@@ -189,7 +189,7 @@ export class TodoService {
   }
 
   get(id: string): Todo {
-    const todo = findTodo(this.db, parseOrThrow(idSchema, id))
+    const todo = findTodo(this.db, parseOrThrow(idSchema, id), this.today())
     if (!todo) throw new NotFoundError(`할 일을 찾을 수 없습니다: ${id}`)
     return todo
   }
@@ -197,7 +197,7 @@ export class TodoService {
   async list(input: unknown): Promise<TodoPage> {
     const filter = parseOrThrow(listTodosSchema, input)
     const goal = filter.goal === undefined ? undefined : filter.goal === 'none' ? null : this.goals.resolve(filter.goal).id
-    return listTodos(this.db, { ...filter, ...(filter.tag !== undefined ? { tag: normalizeTagNames([filter.tag])[0] ?? '' } : {}) }, goal)
+    return listTodos(this.db, { ...filter, ...(filter.tag !== undefined ? { tag: normalizeTagNames([filter.tag])[0] ?? '' } : {}) }, goal, this.today())
   }
 
   async update(id: string, input: unknown): Promise<Todo> {
@@ -243,7 +243,7 @@ export class TodoService {
 
   async upcoming(input: unknown): Promise<UpcomingResult> {
     const { days } = parseOrThrow(upcomingSchema, input ?? {})
-    return groupUpcoming(listOpenTodos(this.db), this.today(), days)
+    return groupUpcoming(listOpenTodos(this.db, this.today()), this.today(), days)
   }
 
   async listTags(): Promise<TagSummary[]> {

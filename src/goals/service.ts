@@ -113,7 +113,7 @@ export class GoalService {
     const goal = this.resolve(ref)
     const base = this.withProgress(goal)
     const checkins = listCheckinsForGoal(this.db, goal.id).slice(-RECENT_CHECKINS).reverse()
-    return { ...base, checkins, open_todos: listOpenTodosForGoal(this.db, goal.id), done_todos: listDoneTodosForGoal(this.db, goal.id, RECENT_DONE_TODOS) }
+    return { ...base, checkins, open_todos: listOpenTodosForGoal(this.db, goal.id, this.today()), done_todos: listDoneTodosForGoal(this.db, goal.id, RECENT_DONE_TODOS, this.today()) }
   }
 
   async logProgress(ref: string, input: unknown, source: 'mcp' | 'web' = 'mcp'): Promise<{ checkin: CheckinView; metric: MetricWithProgress; goal: GoalWithProgress }> {

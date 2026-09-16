@@ -85,7 +85,7 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 | `complete_todo` | 완료 / `reopen: true`로 되돌리기 |
 | `cancel_todo` | 취소(목록·알림에서 제외, 기록 유지) / `reopen: true`로 되살리기 |
 | `delete_todo` | 영구 삭제. 명시적 요청 시에만 |
-| `upcoming` | 알림용. `overdue`, `start_now`, `later`, `no_due` 그룹 + 한 줄 `summary` |
+| `upcoming` | 알림용. `overdue`, `start_now`, `later`, `no_due` 그룹 + 한 줄 `summary`. 각 항목의 `time_pressure`(tight/critical)로 규모 대비 촉박 여부를 알 수 있음 |
 | `list_tags` | 태그와 미완료 개수 |
 | `list_goals` | 인생·연간·단기·장기 목표와 진행률(달성률, 기간 경과율, 상태) |
 | `add_goal` / `update_goal` | 목표와 지표 정의. 지표 kind: count(권·회 누적) / value(kg·명·BTC 측정값) / boolean |
@@ -130,10 +130,12 @@ Claude Code나 스크립트처럼 헤더를 직접 넣을 수 있는 클라이�
 ```text
 dueday 커넥터의 upcoming 도구를 days=7로 호출해라. 결과를 이렇게 정리해서 알려줘:
 1) 마감 지남 — 제목, 마감일 (있을 때만, 굵게)
-2) 오늘 준비 시작 — 제목, 마감일, 남은 일수. 맨 위에 눈에 띄게.
-3) 이번 주 예정 — 제목, 마감일, 준비 시작일
-4) 마지막 줄에 도구 응답의 summary를 그대로 인용.
+2) 규모 대비 촉박 — start_now와 later 중 time_pressure가 critical 또는 tight인 항목 (있을 때만). critical 먼저, 각 줄에 제목 · 마감일 · 남은 일수 · 규모(size)를 쓰고 critical은 굵게. 이 항목은 아래 그룹에서 다시 적지 않는다.
+3) 오늘 준비 시작 — 제목, 마감일, 남은 일수. 맨 위에 눈에 띄게.
+4) 이번 주 예정 — 제목, 마감일, 준비 시작일
+5) 마지막 줄에 도구 응답의 summary를 그대로 인용.
 아무것도 없으면 "오늘은 준비 시작할 일이 없음" 한 줄만.
+time_pressure는 서버가 계산한 값이다(남은 일수가 규모의 준비 기간보다 짧으면 tight, 절반 이하면 critical). 직접 계산하지 말고 값을 그대로 쓴다.
 
 오늘이 월요일이면 마지막에 "주간 목표 리뷰" 블록을 추가한다: list_goals(status=active)를 호출해
 연간 목표를 뒤처짐 → 순항 → 앞섬 → 달성 순으로 나열하고, 각 줄에 제목 · 달성률 vs 기간 경과율 ·
@@ -156,6 +158,8 @@ pnpm typecheck && pnpm build
 ## 규모 (size)
 
 할 일마다 예상 소요를 1~6 규모로 둘 수 있습니다: 1 1시간 미만 / 2 하루 미만 / 3 1~2일 / 4 3~7일 / 5 2주 / 6 2주 이상. 규모가 있고 `lead_days`를 따로 주지 않으면 준비 시작이 규모에서 정해집니다(1→당일, 2→1일, 3→2일, 4→5일, 5→10일, 6→14일 전). 규모를 비우면 같은 태그의 이전 항목 2건 이상이 같은 규모를 갖고 있을 때 그 값을 물려받고(반복되는 일상 업무), 그렇지 않으면 자동 분류가 추정합니다. 직접 정한 규모는 덮어쓰지 않습니다.
+
+남은 일수가 규모의 준비 기간보다 짧으면 `time_pressure`가 `tight`, 그 절반 이하면 `critical`로 표시됩니다(마감 지남·규모 없음·규모 1은 null). 웹에서는 배지와 행 색으로, `upcoming` 요약에는 "규모 대비 촉박 N건"으로 나옵니다.
 
 ## 자동 분류 (선택, Claude API)
 

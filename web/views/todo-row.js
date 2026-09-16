@@ -3,7 +3,7 @@ import { ddayLabel, prepLabel, monthDay, dayDiff } from '../dates.js'
 import { renderRowMenu } from './row-menu.js'
 import { render as renderEditor } from './row-editor.js'
 import { render as renderDeleteConfirm } from './row-delete-confirm.js'
-import { sizeLabel, SIZE_DESCRIPTIONS } from '../size.js'
+import { sizeLabel, SIZE_DESCRIPTIONS, timePressure, pressureText } from '../size.js'
 
 /** Which badge variant a todo falls into, per the "지금 준비 시작"/"7일 내" rules. */
 export function badgeVariant(today, todo) {
@@ -16,11 +16,14 @@ export function badgeVariant(today, todo) {
   return 'later'
 }
 
-function badgeText(today, todo, variant) {
+function badgeText(today, todo, variant, pressure) {
   if (variant === 'cancelled') return '취소'
   if (variant === 'done') return `완료 · ${monthDay(todo.done_at) ?? ''}`
   if (variant === 'none') return '마감 없음'
-  return ddayLabel(today, todo.due_at)
+  const base = ddayLabel(today, todo.due_at)
+  if (pressure === 'critical') return `${base} · 위험`
+  if (pressure === 'tight') return `${base} · 촉박`
+  return base
 }
 
 /** Small `◎ tag` chip shown after the tag chips when a todo is linked to a goal. */
@@ -112,15 +115,20 @@ function renderNormalRow(todo, state, actions, rowKey) {
   const isDone = todo.status === 'done'
   const isCancelled = todo.status === 'cancelled'
   const prep = !isDone && !isCancelled && todo.due_at ? prepLabel(todo.prep_start) : null
+  const pressure = timePressure(todo, state.today)
+  const pressureRowClass = pressure ? ` is-${pressure}` : ''
+  const pressureBadgeClass = pressure ? ` badge-${pressure}` : ''
+  const badgeTitle = pressure ? pressureText(todo, state.today) : null
+  const badgeTitleAttr = badgeTitle ? ` title="${escapeHtml(badgeTitle)}"` : ''
 
   const el = createElement(`
-    <div class="todo-row" data-id="${escapeHtml(todo.id)}" data-row-key="${escapeHtml(rowKey)}">
+    <div class="todo-row${pressureRowClass}" data-id="${escapeHtml(todo.id)}" data-row-key="${escapeHtml(rowKey)}">
       <div class="row-text">
         <div class="row-title ${isDone ? 'is-done' : ''} ${isCancelled ? 'is-cancelled' : ''}">${escapeHtml(todo.title)}</div>
         ${tagChips(todo.tags, todo.goal_tag, todo.enrichment, todo.size)}
       </div>
       ${prep ? `<span class="row-prep">${escapeHtml(prep)}</span>` : '<span class="row-prep row-prep-empty"></span>'}
-      <span class="due-badge badge-${variant}">${escapeHtml(badgeText(state.today, todo, variant))}</span>
+      <span class="due-badge badge-${variant}${pressureBadgeClass}"${badgeTitleAttr}>${escapeHtml(badgeText(state.today, todo, variant, pressure))}</span>
       ${isCancelled ? '' : '<button type="button" class="btn row-toggle' + (isDone ? ' row-toggle-done' : '') + '" aria-label="' + (isDone ? '미완료로 되돌리기' : '완료로 표시') + '">' + (isDone ? '↺ 되돌리기' : '✓ 완료') + '</button>'}
       <div class="row-menu-wrap">
         <button type="button" class="btn btn-ghost row-menu-btn" aria-label="더 보기" aria-haspopup="true" aria-expanded="${state.menuOpenId === rowKey}">⋯</button>

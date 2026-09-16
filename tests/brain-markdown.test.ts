@@ -16,6 +16,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     goal_id: null,
     goal_tag: null,
     size: null,
+    time_pressure: null,
     enrichment: null,
     enriched_at: null,
     source: 'mcp',

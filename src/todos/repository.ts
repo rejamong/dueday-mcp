@@ -1,5 +1,6 @@
 import type { Db } from '../db/connection.js'
-import { prepStart } from './dates.js'
+import { daysUntil, prepStart, todayInSeoul } from './dates.js'
+import { timePressure } from './size.js'
 import type { ListTodosInput } from './schemas.js'
 import type { EnrichmentApplied, Todo, TodoRow } from './types.js'
 
@@ -24,14 +25,20 @@ export function parseJsonColumn<T>(raw: string | null, where: string): T | null 
   }
 }
 
-function toTodo(row: RawRow): Todo {
+function toTodo(row: RawRow, today: string): Todo {
   const { tag_csv, enrichment, ...rest } = row
   return {
     ...rest,
     prep_start: rest.due_at ? prepStart(rest.due_at, rest.lead_days) : null,
     tags: tag_csv ? tag_csv.split(',') : [],
     enrichment: parseJsonColumn<EnrichmentApplied>(enrichment, 'todos.enrichment'),
+    time_pressure: rest.status === 'open' && rest.due_at ? timePressure(rest.size, daysUntil(today, rest.due_at)) : null,
   }
+}
+
+/** Callers with a fixed clock (services, tests) pass their own today; others get the real Seoul date. */
+function todayOr(today: string | undefined): string {
+  return today ?? todayInSeoul(new Date())
 }
 
 /** `undefined` = no goal filter, `null` = only unlinked (일상), string = that goal id. */
@@ -60,9 +67,9 @@ export function insertTodo(db: Db, row: TodoRow): void {
   )
 }
 
-export function findTodo(db: Db, id: string): Todo | undefined {
+export function findTodo(db: Db, id: string, today?: string): Todo | undefined {
   const row = db.prepare(`${SELECT_TODO} WHERE t.id = ?`).get(id) as RawRow | undefined
-  return row ? toTodo(row) : undefined
+  return row ? toTodo(row, todayOr(today)) : undefined
 }
 
 interface WhereClause {
@@ -111,7 +118,7 @@ export interface TodoPage {
   readonly total: number
 }
 
-export function listTodos(db: Db, filter: ListTodosInput, goal: GoalFilter = undefined): TodoPage {
+export function listTodos(db: Db, filter: ListTodosInput, goal: GoalFilter = undefined, today?: string): TodoPage {
   const where = buildWhere(filter, goal)
   const total = (
     db.prepare(`SELECT COUNT(*) AS n FROM todos t ${where.sql}`).get(...where.params) as { n: number }
@@ -119,23 +126,23 @@ export function listTodos(db: Db, filter: ListTodosInput, goal: GoalFilter = und
   const rows = db
     .prepare(`${SELECT_TODO} ${where.sql} ORDER BY t.due_at IS NULL, t.due_at ASC, t.id ASC LIMIT ? OFFSET ?`)
     .all(...where.params, filter.limit, filter.offset) as unknown as RawRow[]
-  return { items: rows.map(toTodo), total }
+  return { items: rows.map((r) => toTodo(r, todayOr(today))), total }
 }
 
-export function listOpenTodos(db: Db): Todo[] {
+export function listOpenTodos(db: Db, today?: string): Todo[] {
   const rows = db.prepare(`${SELECT_TODO} WHERE t.status = 'open' ORDER BY t.due_at IS NULL, t.due_at ASC, t.id ASC`).all() as unknown as RawRow[]
-  return rows.map(toTodo)
+  return rows.map((r) => toTodo(r, todayOr(today)))
 }
 
-export function listOpenTodosForGoal(db: Db, goalId: string): Todo[] {
+export function listOpenTodosForGoal(db: Db, goalId: string, today?: string): Todo[] {
   const rows = db.prepare(`${SELECT_TODO} WHERE t.goal_id = ? AND t.status = 'open' ORDER BY t.due_at IS NULL, t.due_at ASC, t.id ASC`).all(goalId) as unknown as RawRow[]
-  return rows.map(toTodo)
+  return rows.map((r) => toTodo(r, todayOr(today)))
 }
 
 /** Most recently completed todos of a goal, newest first (so the detail panel can show and reopen them). */
-export function listDoneTodosForGoal(db: Db, goalId: string, limit: number): Todo[] {
+export function listDoneTodosForGoal(db: Db, goalId: string, limit: number, today?: string): Todo[] {
   const rows = db.prepare(`${SELECT_TODO} WHERE t.goal_id = ? AND t.status = 'done' ORDER BY t.done_at DESC, t.id DESC LIMIT ?`).all(goalId, limit) as unknown as RawRow[]
-  return rows.map(toTodo)
+  return rows.map((r) => toTodo(r, todayOr(today)))
 }
 
 export type TodoPatch = Partial<Omit<TodoRow, 'id' | 'created_at' | 'source'>>

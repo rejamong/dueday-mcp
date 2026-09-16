@@ -36,6 +36,8 @@ export interface Todo extends Omit<TodoRow, 'enrichment'> {
   readonly goal_tag: string | null
   /** Fields the classifier filled in, for the "자동" chip; null when untouched or manually edited since. */
   readonly enrichment: EnrichmentApplied | null
+  /** Derived per request: open todo whose days left are short for its size ('tight' / 'critical'), else null. */
+  readonly time_pressure: 'tight' | 'critical' | null
 }
 
 export interface TagSummary {

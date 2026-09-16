@@ -501,3 +501,81 @@ test('mobile: quick-add collapses behind a button and stat cards become one line
   const { data } = await res.json()
   for (const t of data) await page.request.delete(`/api/todos/${t.id}`)
 })
+
+test('규모 대비 촉박: tight/critical badges, row accents, and the stats count', async ({ page }) => {
+  const stamp = Date.now()
+  const TITLE_TIGHT = `E2E 촉박 테스트 ${stamp}`
+  const TITLE_CRITICAL = `E2E 위험 테스트 ${stamp}`
+  const TITLE_NONE = `E2E 여유 테스트 ${stamp}`
+  let today = ''
+  const ids: string[] = []
+
+  const allSection = page.locator('.section').filter({ hasText: '전체 목록' })
+
+  await test.step('log in via the REST API (never type the password into the login form)', async () => {
+    const res = await page.request.post('/login', { data: { password: OWNER_PASSWORD } })
+    expect(res.ok()).toBe(true)
+  })
+
+  await test.step('open the app and read today', async () => {
+    await page.goto('/')
+    await expect(page.locator('.topbar')).toBeVisible()
+    const line = await page.locator('.today-line').textContent()
+    today = (line ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+    expect(today).not.toBe('')
+  })
+
+  // size 4 (일주일) needs 5 days of lead time: 3 remaining is tight (< 5), 1 remaining is critical (<= floor(5/2)=2),
+  // 10 remaining is neither.
+  await test.step('create size-4 todos due in 3d (tight), 1d (critical), and 10d (no pressure)', async () => {
+    const create = async (title: string, days: number) => {
+      const res = await page.request.post('/api/todos', { data: { title, due: addDaysUtc(today, days), size: 4 } })
+      expect(res.ok()).toBe(true)
+      const { data } = await res.json()
+      ids.push(data.id)
+    }
+    await create(TITLE_TIGHT, 3)
+    await create(TITLE_CRITICAL, 1)
+    await create(TITLE_NONE, 10)
+  })
+
+  await test.step('reload so the list and stats pick up the new todos', async () => {
+    await page.reload()
+    await expect(page.locator('.topbar')).toBeVisible()
+  })
+
+  await test.step('the 3-day todo shows a 촉박 badge and the is-tight row accent', async () => {
+    const row = allSection.locator('.todo-row').filter({ hasText: TITLE_TIGHT })
+    await expect(row).toBeVisible()
+    await expect(row.locator('.due-badge')).toContainText('촉박')
+    await expect(row).toHaveClass(/is-tight/)
+  })
+
+  await test.step('the 1-day todo shows a 위험 badge and the is-critical row accent', async () => {
+    const row = allSection.locator('.todo-row').filter({ hasText: TITLE_CRITICAL })
+    await expect(row).toBeVisible()
+    await expect(row.locator('.due-badge')).toContainText('위험')
+    await expect(row).toHaveClass(/is-critical/)
+  })
+
+  await test.step('the 10-day todo shows neither the badge suffix nor a pressure row class', async () => {
+    const row = allSection.locator('.todo-row').filter({ hasText: TITLE_NONE })
+    await expect(row).toBeVisible()
+    await expect(row.locator('.due-badge')).not.toContainText('촉박')
+    await expect(row.locator('.due-badge')).not.toContainText('위험')
+    const classAttr = (await row.getAttribute('class')) ?? ''
+    expect(classAttr).not.toMatch(/is-tight|is-critical/)
+  })
+
+  await test.step('the stats card strip shows 규모 대비 촉박 count 2', async () => {
+    const tightCard = page.locator('.stat-card').filter({ hasText: '규모 대비 촉박' })
+    await expect(tightCard.locator('.stat-number')).toHaveText('2')
+  })
+
+  await test.step('clean up all three todos via the API', async () => {
+    for (const id of ids) {
+      const delRes = await page.request.delete(`/api/todos/${id}`)
+      expect(delRes.ok()).toBe(true)
+    }
+  })
+})

@@ -3,6 +3,7 @@ import { monthGrid, formatMonthTitle, toDateOnly } from '../dates.js'
 import { badgeVariant } from './todo-row.js'
 import { render as renderCalendarDay } from './calendar-day.js'
 import { renderCellAdd } from './calendar-quick-add.js'
+import { timePressure } from '../size.js'
 
 const WEEKDAY_HEADERS = ['월', '화', '수', '목', '금', '토', '일']
 const MAX_CHIPS = 3
@@ -34,7 +35,10 @@ function groupByPrepDate(todos) {
 
 function dueChipHtml(today, todo) {
   const variant = badgeVariant(today, todo)
-  return `<span class="cal-chip cal-chip-${variant}" title="${escapeHtml(todo.title)}">${escapeHtml(todo.title)}</span>`
+  const pressure = timePressure(todo, today)
+  const pressureClass = pressure ? ` cal-chip-${pressure}` : ''
+  const text = pressure ? `⚠ ${todo.title}` : todo.title
+  return `<span class="cal-chip cal-chip-${variant}${pressureClass}" title="${escapeHtml(todo.title)}">${escapeHtml(text)}</span>`
 }
 
 function prepChipHtml(todo) {

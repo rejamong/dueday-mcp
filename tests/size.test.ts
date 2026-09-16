@@ -119,3 +119,33 @@ describe('size via the classifier', () => {
     expect(t.enrichment).toEqual({ size: 1, lead_days: 0 })
   })
 })
+
+describe('time pressure (규모 대비 촉박)', () => {
+  it('flags tight/critical from the size window and the days left', async () => {
+    const { timePressure } = await import('../src/todos/size.js')
+    expect(timePressure(4, 3)).toBe('tight') // needs 5 days, 3 left
+    expect(timePressure(4, 2)).toBe('critical') // half or less
+    expect(timePressure(4, 5)).toBeNull()
+    expect(timePressure(1, 0)).toBeNull() // under an hour: never pressured
+    expect(timePressure(2, 0)).toBe('critical')
+    expect(timePressure(6, -1)).toBeNull() // overdue is its own state
+    expect(timePressure(null, 1)).toBeNull()
+  })
+
+  it('exposes time_pressure on todos from get/list/upcoming relative to the service clock', async () => {
+    const { todos } = make() // clock: 2026-09-15 KST
+    const tight = await todos.add({ title: '보고서', size: 4, due: '2026-09-18' })
+    const fine = await todos.add({ title: '보고서 2', size: 4, due: '2026-09-25' })
+    const noSize = await todos.add({ title: '규모 없음', due: '2026-09-16' })
+    expect(tight.time_pressure).toBe('tight')
+    expect(fine.time_pressure).toBeNull()
+    expect(noSize.time_pressure).toBeNull()
+    expect(todos.get(tight.id).time_pressure).toBe('tight')
+    expect((await todos.list({})).items.find((t) => t.id === tight.id)?.time_pressure).toBe('tight')
+    const up = await todos.upcoming({ days: 14 })
+    expect(up.start_now.find((t) => t.id === tight.id)?.time_pressure).toBe('tight')
+    expect(up.summary).toContain('규모 대비 촉박 1건')
+    await todos.complete(tight.id)
+    expect(todos.get(tight.id).time_pressure).toBeNull()
+  })
+})

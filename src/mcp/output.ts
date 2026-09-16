@@ -13,6 +13,7 @@ export const todoOutput = z.object({
   goal_id: z.string().nullable(),
   goal_tag: z.string().nullable(),
   size: z.number().int().min(1).max(6).nullable(),
+  time_pressure: z.enum(['tight', 'critical']).nullable(),
   enrichment: z.record(z.string(), z.unknown()).nullable(),
   enriched_at: z.string().nullable(),
   source: z.enum(['mcp', 'web']),
