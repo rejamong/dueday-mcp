@@ -12,7 +12,7 @@ function parseTags(raw) {
     .filter((t) => t.length > 0)
 }
 
-/** 규모 select options: empty (none) + 1..5 with their short labels. */
+/** 규모 select options: empty (none) + 1..6 with their short labels. */
 function sizeSelectHtml() {
   const options = SIZES.map((s) => `<option value="${s}">${s} · ${escapeHtml(SIZE_LABELS[s])}</option>`).join('')
   return `

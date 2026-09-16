@@ -27,7 +27,7 @@ function goalSelectHtml(todo, goals) {
   `
 }
 
-/** 규모 select options: empty (none) + 1..5, prefilled from the todo's current size. */
+/** 규모 select options: empty (none) + 1..6, prefilled from the todo's current size. */
 function sizeSelectHtml(todo) {
   const options = SIZES.map((s) => `<option value="${s}" ${todo.size === s ? 'selected' : ''}>${s} · ${escapeHtml(SIZE_LABELS[s])}</option>`).join('')
   return `

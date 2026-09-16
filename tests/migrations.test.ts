@@ -38,13 +38,24 @@ describe('migrations', () => {
   })
 })
 
-describe('migration v6 (todos.size)', () => {
-  it('adds a nullable size column constrained to 1..5', () => {
+describe('migration v7 (todos.size 1..6)', () => {
+  it('shifts existing sizes up by one, widens the check to 1..6, and keeps foreign keys', () => {
     const db = new DatabaseSync(':memory:')
     db.exec('PRAGMA foreign_keys = ON')
-    runMigrations(db)
+    migrateTo(db, 6)
     db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t1', 'x', 3, 'open', 'mcp', 't', 't', 3)").run()
-    expect(() => db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t2', 'x', 3, 'open', 'mcp', 't', 't', 6)").run()).toThrow()
-    expect(db.prepare("SELECT size FROM todos WHERE id = 't1'").get()).toEqual({ size: 3 })
+    db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t2', 'y', 3, 'open', 'mcp', 't', 't', NULL)").run()
+    db.prepare("INSERT INTO tags (id, name, created_at) VALUES (1, 'a', 't')").run()
+    db.prepare("INSERT INTO todo_tags (todo_id, tag_id) VALUES ('t1', 1)").run()
+
+    runMigrations(db)
+
+    expect(db.prepare("SELECT size FROM todos WHERE id = 't1'").get()).toEqual({ size: 4 })
+    expect(db.prepare("SELECT size FROM todos WHERE id = 't2'").get()).toEqual({ size: null })
+    expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t3', 'z', 3, 'open', 'mcp', 't', 't', 6)").run()
+    expect(() => db.prepare("INSERT INTO todos (id, title, lead_days, status, source, created_at, updated_at, size) VALUES ('t4', 'z', 3, 'open', 'mcp', 't', 't', 7)").run()).toThrow()
+    db.prepare("DELETE FROM todos WHERE id = 't1'").run()
+    expect(db.prepare('SELECT COUNT(*) AS n FROM todo_tags').get()).toEqual({ n: 0 })
   })
 })

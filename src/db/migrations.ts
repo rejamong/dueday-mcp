@@ -170,6 +170,38 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE todos ADD COLUMN size INTEGER CHECK (size BETWEEN 1 AND 5);
     `,
   },
+  {
+    // Size gains a new smallest level (1 = under an hour); the old 1..5 become 2..6.
+    version: 7,
+    rebuildsTables: true,
+    sql: `
+      CREATE TABLE todos_v7 (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        note TEXT,
+        due_at TEXT,
+        lead_days INTEGER NOT NULL DEFAULT 3,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done', 'cancelled')),
+        brain_ref TEXT,
+        source TEXT NOT NULL DEFAULT 'mcp' CHECK (source IN ('mcp', 'web')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        done_at TEXT,
+        goal_id TEXT REFERENCES goals (id) ON DELETE SET NULL,
+        enrichment TEXT,
+        enriched_at TEXT,
+        size INTEGER CHECK (size BETWEEN 1 AND 6)
+      );
+      INSERT INTO todos_v7 (id, title, note, due_at, lead_days, status, brain_ref, source, created_at, updated_at, done_at, goal_id, enrichment, enriched_at, size)
+        SELECT id, title, note, due_at, lead_days, status, brain_ref, source, created_at, updated_at, done_at, goal_id, enrichment, enriched_at,
+               CASE WHEN size IS NULL THEN NULL ELSE size + 1 END
+        FROM todos;
+      DROP TABLE todos;
+      ALTER TABLE todos_v7 RENAME TO todos;
+      CREATE INDEX IF NOT EXISTS idx_todos_status_due ON todos (status, due_at);
+      CREATE INDEX IF NOT EXISTS idx_todos_goal ON todos (goal_id);
+    `,
+  },
 ]
 
 export function runMigrations(db: DatabaseSync): void {
