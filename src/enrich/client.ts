@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { buildSystemPrompt, buildUserMessage, type EnrichContext } from './prompt.js'
-import { enrichmentOutputSchema, type EnrichmentOutput } from './schema.js'
+import { enrichmentWireSchema, normalizeEnrichmentOutput, type EnrichmentOutput } from './schema.js'
 
 export type { EnrichmentOutput } from './schema.js'
 
@@ -34,12 +34,12 @@ export function createAnthropicEnrichClient(options: AnthropicEnrichOptions): En
         max_tokens: MAX_OUTPUT_TOKENS,
         system: [{ type: 'text', text: buildSystemPrompt(), cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: buildUserMessage(input) }],
-        output_config: { format: zodOutputFormat(enrichmentOutputSchema), effort: 'low' },
+        output_config: { format: zodOutputFormat(enrichmentWireSchema), effort: 'low' },
       })
       if (response.stop_reason === 'refusal' || response.parsed_output === null) {
         throw new Error(`분류 응답을 해석할 수 없습니다 (stop_reason=${response.stop_reason})`)
       }
-      return enrichmentOutputSchema.parse(response.parsed_output)
+      return normalizeEnrichmentOutput(response.parsed_output)
     },
   }
 }
